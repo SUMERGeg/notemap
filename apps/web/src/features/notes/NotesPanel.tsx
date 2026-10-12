@@ -138,7 +138,7 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
     {view === 'profile' && <>
     <StoragePanel onRestored={()=>window.location.reload()}/>
     <ShareLinksPanel/>
-    <a className="text-action" href="#map-compare">Сравнить Leaflet и MapLibre</a>
+    <a className="text-action" href="#map-compare">Сравнить Яндекс и Geoapify</a>
     </>}
     {editor&&<div className="editor-toolbar"><button type="button" className="text-action" disabled={busy} onClick={cancelEdit}>Отмена</button><h1>{active?'Редактировать':'Добавить заметку'}</h1><button type="submit" form="note-editor" className="text-action save-action" disabled={busy}>{busy?'Сохраняем…':'Сохранить'}</button></div>}
     {selected&&<div className={`place-presentation${editor?' is-editing':''}`}>
