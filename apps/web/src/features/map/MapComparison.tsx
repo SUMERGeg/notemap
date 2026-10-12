@@ -3,12 +3,13 @@ import * as L from 'leaflet';
 import * as maplibregl from 'maplibre-gl';
 import 'leaflet/dist/leaflet.css';
 import './comparison.css';
-import { MAP_STYLE, mobileMapStyle, rasterTileUrl } from './startup';
+import { mobileMapStyle, rasterTileUrl } from './startup';
 import { DEFAULT_VIEWPORT, readViewport, VIEWPORT_KEY, type Viewport } from './viewport';
 import { createComparisonMetrics, type ComparisonMetrics } from './comparison-metrics';
 
 type Engine='leaflet'|'maplibre';
 const empty:ComparisonMetrics={firstTileMs:null,tiles:0,errors:0};
+const comparisonStyle='osm-bright';
 export default function MapComparison(){
   const host=useRef<HTMLDivElement>(null);
   const position=useRef<Viewport>({...DEFAULT_VIEWPORT});
@@ -36,7 +37,7 @@ export default function MapComparison(){
       if(engine==='leaflet'){
         const map=L.map(host.current,{attributionControl:true,zoomControl:true,zoomSnap:0,maxZoom:18}).setView([latitude,longitude],zoom);
         remove=()=>map.remove();resize=()=>map.invalidateSize();
-        const tiles=L.tileLayer(rasterTileUrl(key,MAP_STYLE,'{z}/{x}/{y}',{highResolution:false}),{
+        const tiles=L.tileLayer(rasterTileUrl(key,comparisonStyle,'{z}/{x}/{y}',{highResolution:false}),{
           maxZoom:18,tileSize:256,detectRetina:false,updateWhenIdle:true,keepBuffer:1,
           attribution:'<a href="https://www.geoapify.com/">Geoapify</a> | <a href="https://openmaptiles.org/">© OpenMapTiles</a> | <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>',
         });
@@ -44,7 +45,7 @@ export default function MapComparison(){
         tiles.on('tileerror',measurement.tileFailed);tiles.addTo(map);
         map.on('moveend',()=>{const center=map.getCenter();position.current={longitude:center.lng,latitude:center.lat,zoom:map.getZoom()};});
       }else{
-        const map=new maplibregl.Map({container:host.current,style:mobileMapStyle(key,MAP_STYLE,undefined,{pixelRatio:1,highResolution:false}),pixelRatio:1,center:[longitude,latitude],zoom,maxZoom:18,attributionControl:false});
+        const map=new maplibregl.Map({container:host.current,style:mobileMapStyle(key,comparisonStyle,undefined,{pixelRatio:1,highResolution:false}),pixelRatio:1,center:[longitude,latitude],zoom,maxZoom:18,attributionControl:false});
         remove=()=>map.remove();resize=()=>map.resize();
         map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-left');
         map.addControl(new maplibregl.AttributionControl({compact:false}));
@@ -62,7 +63,7 @@ export default function MapComparison(){
     return()=>{measurement.dispose();clearTimeout(timer);cancelAnimationFrame(frame);observer.disconnect();remove();};
   },[engine,run]);
   return <main className="map-comparison">
-    <header><a href="#">← На мою карту</a><h1>Сравнение карт</h1><p>Одна подложка Geoapify, два движка. Личные данные не используются.</p></header>
+    <header><a href="#">← На мою карту</a><h1>Сравнение карт</h1><p>Светлая контрастная подложка, два движка. Личные данные не используются.</p></header>
     <div className="comparison-switch" aria-label="Движок карты">{(['leaflet','maplibre'] as const).map(value=><button key={value} aria-pressed={engine===value} onClick={()=>setEngine(value)}>{value==='leaflet'?'Leaflet':'MapLibre'}</button>)}</div>
     <section className="comparison-stats" aria-live="polite"><strong>{metrics.firstTileMs===null?'Загружаем…':`Первый участок: ${(metrics.firstTileMs/1000).toFixed(2)} с`}</strong><span>Тайлы: {metrics.tiles} · Ошибки: {metrics.errors}</span></section>
     <div className="comparison-map" ref={host} aria-label={`Карта ${engine==='leaflet'?'Leaflet':'MapLibre'}`}/>
