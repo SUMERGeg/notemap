@@ -1,8 +1,34 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMapStartup, mobileMapStyle, mapPixelRatio } from './startup';
+import { createMapStartup, mobileMapStyle, mapPixelRatio, preferRetinaTiles } from './startup';
 
 afterEach(()=>vi.useRealTimers());
 describe('запуск карты на медленной сети',()=>{
+  it('не запрашивает Retina на неизвестной или медленной сети',()=>{
+    expect(preferRetinaTiles()).toBe(false);
+    expect(preferRetinaTiles({effectiveType:'3g',downlink:8,rtt:100})).toBe(false);
+    expect(preferRetinaTiles({effectiveType:'4g',downlink:1,rtt:100})).toBe(false);
+    expect(preferRetinaTiles({type:'wifi',saveData:true})).toBe(false);
+    expect(preferRetinaTiles({type:'wifi'})).toBe(true);
+    expect(preferRetinaTiles({effectiveType:'4g',downlink:10,rtt:50})).toBe(true);
+    expect(JSON.stringify(mobileMapStyle('key','osm-bright',undefined,{pixelRatio:2,highResolution:false}))).not.toContain('@2x');
+  });
+  it('после зависания один раз восстанавливается, затем сообщает ошибку без цикла',()=>{
+    vi.useFakeTimers();const ready=vi.fn(),failed=vi.fn(),recover=vi.fn();
+    const startup=createMapStartup({ready,failed,recover});
+    vi.advanceTimersByTime(8000);expect(recover).toHaveBeenCalledOnce();expect(failed).not.toHaveBeenCalled();
+    startup.failed();startup.failed();expect(recover).toHaveBeenCalledOnce();expect(failed).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(12000);expect(failed).toHaveBeenCalledOnce();
+    startup.tileLoaded();startup.rendered();expect(ready).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(30000);expect(recover).toHaveBeenCalledOnce();startup.dispose();
+  });
+  it('ошибка запуска включает fallback сразу, а успешный тайл отменяет второй таймер',()=>{
+    vi.useFakeTimers();const ready=vi.fn(),failed=vi.fn(),recover=vi.fn();
+    const startup=createMapStartup({ready,failed,recover});startup.failed();expect(recover).toHaveBeenCalledOnce();
+    startup.tileLoaded();startup.rendered();vi.advanceTimersByTime(30000);
+    expect(ready).toHaveBeenCalledOnce();expect(failed).not.toHaveBeenCalled();startup.dispose();
+    const abandoned=createMapStartup({ready,failed,recover});abandoned.dispose();vi.advanceTimersByTime(30000);
+    abandoned.failed();expect(recover).toHaveBeenCalledOnce();
+  });
   it('ограничивает нагрузку холста на экранах 3x/4x, учитывая экономию трафика',()=>{
     expect(mapPixelRatio(3)).toBe(2);expect(mapPixelRatio(4)).toBe(2);
     expect(mapPixelRatio(1.5)).toBe(1.5);expect(mapPixelRatio(3,true)).toBe(1);

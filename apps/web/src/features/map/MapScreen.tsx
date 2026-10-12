@@ -40,6 +40,7 @@ export function MapScreen() {
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState('');
   const [retry, setRetry] = useState(0);
+  const [recovering, setRecovering] = useState(false);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('организация');
   const [results, setResults] = useState<PlaceCandidate[]>([]);
@@ -142,7 +143,7 @@ export function MapScreen() {
   useEffect(() => {
     alive.current = true;
     if (!key || !container.current) return;
-    setReady(false); setMapError('');
+    setReady(false); setMapError('');setRecovering(false);
     const viewport = initialViewport();
     const localTiles=document.querySelector<HTMLMetaElement>('meta[name="notemap-map-tiles"]')?.content;
     const rendering=getMapRenderPreferences();
@@ -163,8 +164,18 @@ export function MapScreen() {
       setBounds([width >= 360 ? -180 : wrap(b.getWest()), Math.max(-90,b.getSouth()), width >= 360 ? 180 : wrap(b.getEast()), Math.min(90,b.getNorth())].join(','));
     }
     const startup=createMapStartup({
-      ready:()=>{setReady(true);setMapError('');updateBounds();},
-      failed:()=>setMapError('Карта не загрузилась. Проверь интернет и попробуй ещё раз.'),
+      ready:()=>{setReady(true);setMapError('');setRecovering(false);updateBounds();},
+      recover:()=>{
+        setRecovering(true);
+        instance.setPixelRatio(1);
+        const fallbackStyle=mobileMapStyle(key,style,localTiles,{pixelRatio:1,highResolution:false,reduceMotion:true});
+        const source=instance.getSource('geoapify');
+        if(source?.type==='raster'){
+          const tiles=fallbackStyle.sources.geoapify;
+          if(tiles.type==='raster'&&tiles.tiles)(source as maplibregl.RasterTileSource).setTiles(tiles.tiles);
+        }else instance.setStyle(fallbackStyle);
+      },
+      failed:()=>{setRecovering(false);setMapError('Карта не загрузилась. Проверь интернет и попробуй ещё раз.');},
     });
     instance.on('load',startup.loaded);
     instance.on('sourcedata',event=>{if(event.tile?.state==='loaded')startup.tileLoaded();});
@@ -178,6 +189,13 @@ export function MapScreen() {
     });
     return () => { startup.dispose(); alive.current = false; controller.current?.abort(); marker.current?.remove(); marker.current = null; instance.remove(); map.current = null; };
   }, [retry]);
+
+  useEffect(()=>{
+    if(!mapError)return;
+    const reconnect=()=>setRetry(value=>value+1);
+    window.addEventListener('online',reconnect,{once:true});
+    return()=>window.removeEventListener('online',reconnect);
+  },[mapError]);
 
   function choose(candidate: PlaceCandidate) {
     invalidateSearch();
@@ -317,7 +335,7 @@ export function MapScreen() {
       {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
       <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти места вокруг центра карты" title="Места рядом с центром карты" onClick={()=>void findNearby()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label="Где я?" onClick={locate} disabled={locating}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
       {manual && ready && !mapError && <div className="center-pin" aria-hidden="true"><Icon name="pin"/></div>}
-      {!ready && !mapError && key && <div className="map-message" role="status">Загружаем карту…</div>}
+      {!ready && !mapError && key && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
       {mapError && <div className="map-message error" role="alert"><p>{mapError}</p><button onClick={() => { setSelected(null); setManual(false); setRetry(value => value + 1); }}>Повторить</button></div>}
       {!key && <div className="map-message"><h2>Карта готова к подключению</h2><p>Укажи бесплатный ключ Geoapify для загрузки настоящей карты.</p></div>}
     </section>
