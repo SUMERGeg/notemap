@@ -2,6 +2,8 @@
 
 Персональная карта с заметками, фото, оценками и коллекциями. React, TypeScript, MapLibre и Geoapify; данные хранятся на устройстве в IndexedDB. Сервер для обычной работы не нужен.
 
+Тестовая PWA: [sumergeg.github.io/notemap](https://sumergeg.github.io/notemap/). На Android открыть в Chrome → меню → «Установить приложение» или «Добавить на главный экран». Данные с localhost переносить через полный архив; автоматически они не появляются.
+
 ## Запуск
 
 Node.js 22.12+. Выполнить `npm ci`, создать `.env.local` по `.env.example` с бесплатным browser key Geoapify, затем `npm run dev`. Browser key виден пользователю; серверные секреты здесь не использовать.
