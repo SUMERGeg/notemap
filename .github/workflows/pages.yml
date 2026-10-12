@@ -1,10 +1,13 @@
-name: Prepare static Notemap for Pages
+name: Deploy Notemap to GitHub Pages
 
-# This workflow never runs on pushes. Leave publish disabled to build an artifact.
+# Pushes to main publish after successful tests and build.
+# Manual runs can still build an artifact without publishing.
 # Before publishing, configure Pages to use GitHub Actions and set repository
 # Actions variable VITE_GEOAPIFY_API_KEY to an origin-restricted browser key.
 # Browser keys appear in the public bundle; never use a server secret here.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       base_path:
@@ -13,7 +16,7 @@ on:
         default: /notemap/
         required: true
       publish:
-        description: 'Publish the artifact to Pages (requires explicit authorization)'
+        description: 'Publish the artifact to Pages for this manual run'
         type: boolean
         default: false
 
@@ -31,7 +34,7 @@ jobs:
       run:
         working-directory: apps/web
     env:
-      NOTEMAP_BASE_PATH: ${{ inputs.base_path }}
+      NOTEMAP_BASE_PATH: ${{ inputs.base_path || '/notemap/' }}
       VITE_GEOAPIFY_API_KEY: ${{ vars.VITE_GEOAPIFY_API_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +53,7 @@ jobs:
           path: apps/web/dist
 
   publish:
-    if: ${{ inputs.publish }}
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     needs: build
     runs-on: ubuntu-latest
     permissions:

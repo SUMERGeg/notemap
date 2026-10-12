@@ -8,7 +8,7 @@
 
 Node.js 22.12+. Выполнить `npm ci`, создать `.env.local` по `.env.example` с бесплатным browser key Geoapify, затем `npm run dev`. Browser key виден пользователю; серверные секреты здесь не использовать.
 
-`npm test` проверяет логику; `npm run build` создаёт статическую PWA в `dist`. Для project Pages задать `NOTEMAP_BASE_PATH=/notemap/`. Workflow `.github/workflows/pages.yml` запускается вручную; публичный ключ задаётся Actions variable `VITE_GEOAPIFY_API_KEY`, публикация включается параметром `publish=true`.
+`npm test` проверяет логику; `npm run build` создаёт статическую PWA в `dist`. Для project Pages задать `NOTEMAP_BASE_PATH=/notemap/`. Каждый push в `main` автоматически запускает `.github/workflows/pages.yml`: тесты → сборка → публикация Pages. При ошибке сайт не обновляется. Публичный ключ задаётся Actions variable `VITE_GEOAPIFY_API_KEY`. Сохраняется ручной запуск: `publish=false` готовит только артефакт, `publish=true` также публикует.
 
 ## Данные и обмен
 
