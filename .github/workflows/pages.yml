@@ -1,0 +1,64 @@
+name: Prepare static Notemap for Pages
+
+# This workflow never runs on pushes. Leave publish disabled to build an artifact.
+# Before publishing, configure Pages to use GitHub Actions and set repository
+# Actions variable VITE_GEOAPIFY_API_KEY to an origin-restricted browser key.
+# Browser keys appear in the public bundle; never use a server secret here.
+on:
+  workflow_dispatch:
+    inputs:
+      base_path:
+        description: 'Site path: /notemap/ for project Pages, / for a custom domain'
+        type: string
+        default: /notemap/
+        required: true
+      publish:
+        description: 'Publish the artifact to Pages (requires explicit authorization)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notemap-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      NOTEMAP_BASE_PATH: ${{ inputs.base_path }}
+      VITE_GEOAPIFY_API_KEY: ${{ vars.VITE_GEOAPIFY_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Require the browser map key
+        run: test -n "$VITE_GEOAPIFY_API_KEY" || { echo 'Set Actions variable VITE_GEOAPIFY_API_KEY before building Pages.'; exit 1; }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deploy
