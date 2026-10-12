@@ -3,6 +3,7 @@ import { Icon, type IconName } from './Icon';
 import { mapTilePosition, starsForRating } from './map-preview';
 import { listPhotos } from '../local/db';
 import { getDirectPhoto } from '../local/photos';
+import { getMapRenderPreferences, rasterTileUrl, MAP_STYLE } from '../features/map/startup';
 
 export const categoryData = [
   { id: 'food', title: 'Еда', fullTitle: 'Еда и напитки', icon: 'food' },
@@ -33,11 +34,12 @@ export function MiniMap({ longitude, latitude, category = 'other', className = '
   const [failed, setFailed] = useState(false);
   const tile = mapTilePosition(longitude, latitude);
   const count = 2 ** tile.zoom;
+  const rendering=getMapRenderPreferences();
   return <span className={`mini-map ${className}`} aria-hidden="true">
     {key && !failed && [-1, 0, 1].flatMap(dy => [-1, 0, 1].map(dx => {
       const y = tile.y + dy;
       if (y < 0 || y >= count || dx * 256 - tile.offsetX > 64 || dx * 256 - tile.offsetX + 256 < -64 || dy * 256 - tile.offsetY > 64 || dy * 256 - tile.offsetY + 256 < -64) return null;
-      return <img key={`${dx}:${dy}`} src={`https://maps.geoapify.com/v1/tile/osm-bright/${tile.zoom}/${(tile.x + dx + count) % count}/${y}.png?apiKey=${encodeURIComponent(key)}`} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} style={{ left: `calc(50% + ${dx * 256 - tile.offsetX}px)`, top: `calc(50% + ${dy * 256 - tile.offsetY}px)` }}/>
+      return <img key={`${dx}:${dy}`} src={rasterTileUrl(key,MAP_STYLE,`${tile.zoom}/${(tile.x + dx + count) % count}/${y}`,rendering)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} style={{ left: `calc(50% + ${dx * 256 - tile.offsetX}px)`, top: `calc(50% + ${dy * 256 - tile.offsetY}px)` }}/>
     }))}
     <span className={`mini-map-pin ${category}`}><Icon name="pin"/></span>
   </span>;

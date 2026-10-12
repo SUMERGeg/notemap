@@ -13,11 +13,11 @@ import { NotesPanel, type PersonalNote } from '../notes/NotesPanel';
 import { categoryData, MiniMap, placesCount } from '../../components/PlaceVisuals';
 import type { ImportedLayer, ImportedSelection } from '../notes/import-api';
 import { ImportedPlacePanel } from '../notes/ImportedCollectionsPanel';
-import { createMapStartup, mobileMapStyle } from './startup';
+import { createMapStartup, mobileMapStyle, getMapRenderPreferences, MAP_STYLE } from './startup';
 import { HomeSheetHandle } from './HomeSheetHandle';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
-const style = import.meta.env.VITE_GEOAPIFY_STYLE ?? 'osm-bright';
+const style = MAP_STYLE;
 // Vite prebundles the main module; bundle the module worker explicitly as well.
 maplibregl.setWorkerUrl(workerUrl);
 function initialViewport(): Viewport {
@@ -145,10 +145,12 @@ export function MapScreen() {
     setReady(false); setMapError('');
     const viewport = initialViewport();
     const localTiles=document.querySelector<HTMLMetaElement>('meta[name="notemap-map-tiles"]')?.content;
+    const rendering=getMapRenderPreferences();
     let instance: maplibregl.Map;
     try {
       instance = new maplibregl.Map({ container: container.current,
-        style: localTiles||window.matchMedia('(max-width:700px)').matches ? mobileMapStyle(key,style,localTiles) : `https://maps.geoapify.com/v1/styles/${encodeURIComponent(style)}/style.json?apiKey=${encodeURIComponent(key)}`,
+        style: localTiles||window.matchMedia('(max-width:700px)').matches ? mobileMapStyle(key,style,localTiles,rendering) : `https://maps.geoapify.com/v1/styles/${encodeURIComponent(style)}/style.json?apiKey=${encodeURIComponent(key)}`,
+        pixelRatio:rendering.pixelRatio,fadeDuration:rendering.reduceMotion?0:160,
         center: [viewport.longitude, viewport.latitude], zoom: viewport.zoom, maxZoom: 18, attributionControl: false });
     } catch { setMapError('Карта не запустилась. Проверь поддержку WebGL в браузере.'); return; }
     map.current = instance;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { markerIcon } from './Icon';
+import { getMapRenderPreferences, mobileMapStyle, MAP_STYLE } from '../features/map/startup';
 
 type Point = { category: string; place: { longitude: number; latitude: number; title: string } };
 export function CollectionMap({ points }: { points: Point[] }) {
@@ -10,7 +11,8 @@ export function CollectionMap({ points }: { points: Point[] }) {
     const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim();
     if (!container.current || !key) { setError(true); return; }
     setError(false);
-    const instance = new maplibregl.Map({ container: container.current, style: `https://maps.geoapify.com/v1/styles/osm-bright/style.json?apiKey=${encodeURIComponent(key)}`, center: points.length ? [points[0].place.longitude, points[0].place.latitude] : [37.6173,55.7558], zoom: 13, interactive: false, attributionControl: false });
+    const rendering=getMapRenderPreferences();
+    const instance = new maplibregl.Map({ container: container.current, style: mobileMapStyle(key,MAP_STYLE,undefined,rendering), pixelRatio:rendering.pixelRatio, center: points.length ? [points[0].place.longitude, points[0].place.latitude] : [37.6173,55.7558], zoom: 13, interactive: false, attributionControl: false });
     instance.addControl(new maplibregl.AttributionControl({ compact: false }));
     instance.on('error',()=>setError(true));
     instance.on('load',()=>{
