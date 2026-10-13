@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { yandexMapStyle } from './yandex-style';
 
 describe('тайлы Яндекса в MapLibre',()=>{
+  it('даёт Retina 2x для основной карты и лёгкие тайлы для экономии трафика',()=>{
+    const retina=yandexMapStyle('key',{pixelRatio:3});
+    const light=yandexMapStyle('key',{pixelRatio:3,saveData:true,reduceMotion:true});
+    const a=retina.sources.yandex,b=light.sources.yandex;
+    if(a.type!=='raster'||b.type!=='raster')throw new Error('Expected raster');
+    expect(a.tileSize).toBe(256);expect(new URL(a.tiles![0]).searchParams.get('scale')).toBe('2');
+    expect(new URL(b.tiles![0]).searchParams.get('scale')).toBe('1');
+    expect(light.layers[0]).toMatchObject({paint:{'raster-fade-duration':0}});
+  });
   it('запрашивает русские подписи и сферическую проекцию без смещения личных точек',()=>{
     const style=yandexMapStyle('test key&value');const source=style.sources.yandex;
     if(source.type!=='raster')throw new Error('Expected raster');

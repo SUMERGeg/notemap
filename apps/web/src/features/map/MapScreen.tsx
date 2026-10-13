@@ -13,11 +13,13 @@ import { NotesPanel, type PersonalNote } from '../notes/NotesPanel';
 import { categoryData, MiniMap, placesCount } from '../../components/PlaceVisuals';
 import type { ImportedLayer, ImportedSelection } from '../notes/import-api';
 import { ImportedPlacePanel } from '../notes/ImportedCollectionsPanel';
-import { createMapStartup, mobileMapStyle, getMapRenderPreferences, MAP_STYLE } from './startup';
+import { createMapStartup, getMapRenderPreferences } from './startup';
+import { yandexMapStyle } from './yandex-style';
+import './yandex-main.css';
 import { HomeSheetHandle } from './HomeSheetHandle';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
-const style = MAP_STYLE;
+const mapKey=import.meta.env.VITE_YANDEX_MAPS_API_KEY?.trim()??'';
 // Vite prebundles the main module; bundle the module worker explicitly as well.
 maplibregl.setWorkerUrl(workerUrl);
 function initialViewport(): Viewport {
@@ -142,15 +144,14 @@ export function MapScreen() {
 
   useEffect(() => {
     alive.current = true;
-    if (!key || !container.current) return;
+    if (!mapKey || !container.current) {setMapError('Не настроен ключ Яндекс Tiles API.');return;}
     setReady(false); setMapError('');setRecovering(false);
     const viewport = initialViewport();
-    const localTiles=document.querySelector<HTMLMetaElement>('meta[name="notemap-map-tiles"]')?.content;
     const rendering=getMapRenderPreferences();
     let instance: maplibregl.Map;
     try {
       instance = new maplibregl.Map({ container: container.current,
-        style: localTiles||window.matchMedia('(max-width:700px)').matches ? mobileMapStyle(key,style,localTiles,rendering) : `https://maps.geoapify.com/v1/styles/${encodeURIComponent(style)}/style.json?apiKey=${encodeURIComponent(key)}`,
+        style: yandexMapStyle(mapKey,rendering),
         pixelRatio:rendering.pixelRatio,fadeDuration:rendering.reduceMotion?0:160,
         center: [viewport.longitude, viewport.latitude], zoom: viewport.zoom, maxZoom: 18, attributionControl: false });
     } catch { setMapError('Карта не запустилась. Проверь поддержку WebGL в браузере.'); return; }
@@ -168,10 +169,10 @@ export function MapScreen() {
       recover:()=>{
         setRecovering(true);
         instance.setPixelRatio(1);
-        const fallbackStyle=mobileMapStyle(key,style,localTiles,{pixelRatio:1,highResolution:false,reduceMotion:true});
-        const source=instance.getSource('geoapify');
+        const fallbackStyle=yandexMapStyle(mapKey,{pixelRatio:1,reduceMotion:true});
+        const source=instance.getSource('yandex');
         if(source?.type==='raster'){
-          const tiles=fallbackStyle.sources.geoapify;
+          const tiles=fallbackStyle.sources.yandex;
           if(tiles.type==='raster'&&tiles.tiles)(source as maplibregl.RasterTileSource).setTiles(tiles.tiles);
         }else instance.setStyle(fallbackStyle);
       },
@@ -332,10 +333,11 @@ export function MapScreen() {
       </div>
     </aside>
     <section className="map-area" aria-label="Карта мест"><div ref={container} className="map-canvas" />
+      <div className="main-yandex-brand"><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer"><img src={`${import.meta.env.BASE_URL}maps/yandex-logo-ru.svg`} alt="Яндекс Карты"/></a><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer">Открыть в Картах</a></div>
       {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
       <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти места вокруг центра карты" title="Места рядом с центром карты" onClick={()=>void findNearby()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label="Где я?" onClick={locate} disabled={locating}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
       {manual && ready && !mapError && <div className="center-pin" aria-hidden="true"><Icon name="pin"/></div>}
-      {!ready && !mapError && key && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
+      {!ready && !mapError && mapKey && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
       {mapError && <div className="map-message error" role="alert"><p>{mapError}</p><button onClick={() => { setSelected(null); setManual(false); setRetry(value => value + 1); }}>Повторить</button></div>}
       {!key && <div className="map-message"><h2>Карта готова к подключению</h2><p>Укажи бесплатный ключ Geoapify для загрузки настоящей карты.</p></div>}
     </section>
