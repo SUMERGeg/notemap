@@ -14,10 +14,10 @@ function worker(){
   const handlers:Record<string,(event:any)=>void>={};
   const entries=new Map<string,string>();
   const cache={addAll:async(paths:string[])=>{for(const path of paths)entries.set(path,`cached:${path}`);},match:async(path:string)=>entries.get(path)};
-  const caches={open:async()=>cache,keys:async()=>['notemap-shell-/notemap/-old','notemap-shell-/-other'],delete:vi.fn().mockResolvedValue(true)};
+  const caches={open:async()=>cache,keys:async()=>['notemap-shell-/notemap/-oldest','notemap-shell-/notemap/-previous','notemap-shell-/-other'],delete:vi.fn().mockResolvedValue(true)};
   const network=vi.fn().mockRejectedValue(new Error('offline'));
   const clients={claim:vi.fn().mockResolvedValue(undefined)};
-  runInNewContext(source,{URL,self:{location:{origin:'https://notemap.test'},clients,addEventListener:(type:string,fn:(event:any)=>void)=>handlers[type]=fn},fetch:network,caches});
+  runInNewContext(source,{URL,AbortController,setTimeout,clearTimeout,self:{location:{origin:'https://notemap.test'},clients,addEventListener:(type:string,fn:(event:any)=>void)=>handlers[type]=fn},fetch:network,caches});
   return {handlers,entries,caches,network,clients};
 }
 describe('installable offline app shell',()=>{
@@ -37,7 +37,7 @@ describe('installable offline app shell',()=>{
       handlers.fetch({request:{url:`https://notemap.test${path}`,method:'GET',mode},respondWith:(promise:Promise<string>)=>result=promise});
       await expect(result).resolves.toBe(`cached:${mode==='navigate'?'/notemap/':path}`);
     }
-    expect(network).not.toHaveBeenCalled();
+    expect(network).toHaveBeenCalledOnce();
   });
   it('leaves provider data, private paths and token queries outside the shell cache',()=>{
     const {handlers}=worker();
@@ -49,15 +49,16 @@ describe('installable offline app shell',()=>{
   it('upgrades only caches for this base and never deletes browser data',async()=>{
     const {handlers,caches,clients}=worker();let activated:Promise<unknown>|undefined;
     handlers.activate({waitUntil:(promise:Promise<unknown>)=>activated=promise});await activated;
-    expect(caches.delete).toHaveBeenCalledExactlyOnceWith('notemap-shell-/notemap/-old');expect(clients.claim).toHaveBeenCalledOnce();
+    expect(caches.delete).toHaveBeenCalledExactlyOnceWith('notemap-shell-/notemap/-oldest');expect(clients.claim).toHaveBeenCalledOnce();
   });
   it('generates the shell allowlist from built files at either base and versions content updates',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'notemap-shell-'));
     try{
-      await mkdir(join(dir,'assets'));await mkdir(join(dir,'icons'));
+      await mkdir(join(dir,'assets'));await mkdir(join(dir,'icons'));await mkdir(join(dir,'maps'));
       await writeFile(join(dir,'index.html'),'<div id="root"></div>');
       for(const file of ['app-abc.js','map-worker-abc.js','app-abc.css','private.json'])await writeFile(join(dir,'assets',file),'original');
       await writeFile(join(dir,'icons','icon-192.png'),'icon');
+      await writeFile(join(dir,'maps','yandex-logo-ru.svg'),'<svg/>');
       for(const base of ['/','/notemap/']){
         const config=await resolveConfig({base},'build','test');
         const plugin=config.plugins.find(plugin=>plugin.name==='notemap-offline-shell')!;
@@ -66,7 +67,7 @@ describe('installable offline app shell',()=>{
         const source=readFileSync(join(dir,'sw.js'),'utf8');
         const built=runInNewContext(source+';({BASE,PRECACHE,CACHE})',{self:{addEventListener(){}}});
         expect(built.BASE).toBe(base);
-        expect(built.PRECACHE).toEqual([base,`${base}assets/app-abc.css`,`${base}assets/app-abc.js`,`${base}assets/map-worker-abc.js`,`${base}icons/icon-192.png`]);
+        expect(built.PRECACHE).toEqual([base,`${base}assets/app-abc.css`,`${base}assets/app-abc.js`,`${base}assets/map-worker-abc.js`,`${base}icons/icon-192.png`,`${base}maps/yandex-logo-ru.svg`]);
         await writeFile(join(dir,'assets','app-abc.js'),`updated-${base}`);
         await hook.call({} as never,{dir} as never,{});
         expect(readFileSync(join(dir,'sw.js'),'utf8')).not.toContain(built.CACHE);
