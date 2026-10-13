@@ -1,5 +1,6 @@
 import { api } from './api';
 import { StoragePanel } from './StoragePanel';
+import { PwaUpdatePanel } from './PwaUpdatePanel';
 import { CollectionsPanel } from './CollectionsPanel';
 import { ItemReviews, loadItemTypes, type ItemType } from './ItemReviews';
 import { useEffect, useRef, useState } from 'react';
@@ -136,6 +137,7 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
   }
   return <section className="selection note-workspace">{view === 'profile' && <div className="account-card"><span className="account-icon"><Icon name="user"/></span><div><h2>На этом устройстве</h2><p>Заметки и фото хранятся локально</p><span className="privacy-label"><Icon name="lock"/>Личное пространство</span></div></div>}
     {view === 'profile' && <>
+    <PwaUpdatePanel/>
     <StoragePanel onRestored={()=>window.location.reload()}/>
     <ShareLinksPanel/>
     <a className="text-action" href="#map-compare">Сравнить Яндекс и Geoapify</a>

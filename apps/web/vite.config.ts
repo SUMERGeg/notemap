@@ -14,9 +14,9 @@ function offlineShell():Plugin {
       const {createHash}=await import(cryptoModule);
       const dir=resolve(config.root,output.dir??config.build.outDir);
       const files=['index.html'];
-      for(const folder of ['assets','icons']){
+      for(const folder of ['assets','icons','maps']){
         for(const entry of await readdir(resolve(dir,folder),{withFileTypes:true})){
-          if(entry.isFile() && (folder==='icons'?/\.(png|svg|ico)$/:/\.(js|css)$/).test(entry.name))files.push(`${folder}/${entry.name}`);
+          if(entry.isFile() && (folder==='assets'?/\.(js|css)$/:/\.(png|svg|ico)$/).test(entry.name))files.push(`${folder}/${entry.name}`);
         }
       }
       files.sort();

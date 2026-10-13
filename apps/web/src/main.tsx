@@ -9,12 +9,13 @@ registerPwa();
 const MapComparison=lazy(()=>import('./features/map/MapComparison'));
 
 function App() {
+  useEffect(()=>{window.dispatchEvent(new Event('notemap-mounted'));},[]);
   const [hash,setHash]=useState(window.location.hash);
   useEffect(()=>{const update=()=>setHash(window.location.hash);window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update);},[]);
   if(hash==='#map-compare')return <Suspense fallback={<p role="status">Открываем сравнение карт…</p>}><MapComparison/></Suspense>;
   return hash.startsWith('#share=')?<SharePreviewPage token={hash.slice(7)}/>:<MapScreen/>;
 }
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')!,{onUncaughtError:()=>window.dispatchEvent(new Event('notemap-startup-error'))}).render(
   <App />,
 );
