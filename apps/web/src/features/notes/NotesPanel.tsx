@@ -16,7 +16,7 @@ import { ImportedCollectionsPanel } from './ImportedCollectionsPanel';
 import type { ImportedLayer, ImportedSelection } from './import-api';
 
 export type PersonalNote = {
-  id: string; place: { title: string; latitude: number; longitude: number; origin: 'custom' | 'external'; address?: string | null; attribution?: string | null };
+  id: string; place: { title: string; latitude: number; longitude: number; origin: 'custom' | 'external'; provider_id?: string; address?: string | null; attribution?: string | null };
   category: string; rating: number | null; text: string; visited_on: string | null;
   item_rating?: number;
 };
@@ -25,11 +25,12 @@ type Resolved = { id: string; title: string; address: string | null; attribution
 const categories = [['food', 'Еда и напитки'], ['culture', 'Культура'], ['nature', 'Природа'], ['other', 'Другое']];
 
 
-export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, presetCategory, onImports, onImportedOpen, onImportedMap, initialImportId }: {
+export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, presetCategory, onImports, onImportedOpen, onImportedMap, initialImportId, onListModeChange }: {
   selected: PlaceCandidate | null; active: PersonalNote | null;
   onNotes: (notes: PersonalNote[]) => void; onOpen: (note: PersonalNote | null) => void;
   bounds: string | null;
   view: 'map' | 'list' | 'profile' | 'collections'; presetCategory: string | null;
+  onListModeChange: (mode: 'all' | 'ranked' | 'items') => void;
   onImports:(layers:ImportedLayer[])=>void; onImportedOpen:(selection:ImportedSelection)=>void; onImportedMap:(layer:ImportedLayer)=>void; initialImportId?:string|null;
 }) {
   const [user, setUser] = useState<User | null>(null);
@@ -52,6 +53,7 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
   const [ranked, setRanked] = useState(false);
   const [listing, setListing] = useState(false);
   const [itemMode, setItemMode] = useState(false);
+  useEffect(() => { onListModeChange(itemMode ? 'items' : ranked ? 'ranked' : 'all'); }, [itemMode, ranked, onListModeChange]);
   const [itemType, setItemType] = useState('');
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [typesVersion, setTypesVersion] = useState(0);
