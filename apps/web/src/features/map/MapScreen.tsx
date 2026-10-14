@@ -18,6 +18,9 @@ import { yandexMapStyle } from './yandex-style';
 import './yandex-main.css';
 import { watchLocation, accuracyRadius, type LocationPoint } from './live-location';
 import './live-location.css';
+import { nearbyTypes, type NearbyType, type NearbyOptions } from '../places/nearby-options';
+import { locateNearby } from '../places/nearby-location';
+import './nearby-search.css';
 import { HomeSheetHandle } from './HomeSheetHandle';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
@@ -52,6 +55,10 @@ export function MapScreen() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [nearbySearch,setNearbySearch] = useState(false);
+  const [nearbyType,setNearbyType]=useState<NearbyType>('all');
+  const [nearbyRadius,setNearbyRadius]=useState<500|1500|3000>(1500);
+  const [nearbyLocating,setNearbyLocating]=useState(false);
+  const [nearbyContext,setNearbyContext]=useState<{point:[number,number];from:'me'|'map';accuracy?:number}|null>(null);
   const [searchError, setSearchError] = useState('');
   const [manual, setManual] = useState(false);
   const [name, setName] = useState('');
@@ -242,10 +249,10 @@ export function MapScreen() {
     setPopupElement(host);
   }
   function invalidateSearch() {
-    controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false); setNearbySearch(false); setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
+    controller.current?.abort(); requestNumber.current++; setLoading(false);setNearbyLocating(false); setSearched(false); setNearbySearch(false); setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
   }
   async function search(event: React.FormEvent) {
-    setNearbySearch(false);
+    setNearbySearch(false);setNearbyLocating(false);
     setPanelOpen(true); setView('map');
     setSheetCompact(false); openNote(null); setManual(false);
     event.preventDefault(); controller.current?.abort();
@@ -262,18 +269,32 @@ export function MapScreen() {
         : error instanceof Error && error.name !== 'TypeError' ? error.message : 'Нет связи с поиском. Можно выбрать точку вручную.');
     } finally { window.clearTimeout(timeout); if (id === requestNumber.current && alive.current) setLoading(false); }
   }
-  async function findNearby(position?:[number,number]) {
+  async function findNearby(position?:[number,number],options:NearbyOptions={type:nearbyType,radius:nearbyRadius},from:'me'|'map'='map',accuracy?:number) {
     invalidateSearch();openNote(null);setImportedSelection(null);setManual(false);setView('map');setPanelOpen(true);setSheetCompact(false);setNearbySearch(true);
     const center=map.current?.getCenter();
     if(!position&&!center){setSearchError('Карта ещё не готова. Попробуй снова после загрузки.');return;}
+    const point:[number,number]=position??[center!.lng,center!.lat];
+    setNearbyContext({point,from,accuracy});setNearbyType(options.type??'all');setNearbyRadius(options.radius??1500);
     const abort=new AbortController();controller.current=abort;const id=++requestNumber.current;
     setLoading(true);const timeout=window.setTimeout(()=>abort.abort(),10000);
     try{
-      const found=await searchNearby(position??[center!.lng,center!.lat],abort.signal);
+      const found=await searchNearby(point,abort.signal,fetch,key,options);
       if(id===requestNumber.current&&alive.current){setResults(found);setSearched(true);}
     }catch(error){if(id===requestNumber.current&&alive.current)setSearchError(abort.signal.aborted?'Поиск занял слишком много времени. Можно повторить или выбрать точку вручную.':error instanceof Error&&error.name!=='TypeError'?error.message:'Нет связи с поиском. Можно выбрать точку вручную.');}
     finally{window.clearTimeout(timeout);if(id===requestNumber.current&&alive.current)setLoading(false);}
   }
+  async function findNearMe(){
+    invalidateSearch();openNote(null);setImportedSelection(null);setManual(false);setView('map');setPanelOpen(true);setSheetCompact(false);setNearbySearch(true);setNearbyContext(null);
+    const abort=new AbortController();controller.current=abort;const id=++requestNumber.current;
+    setLoading(true);setNearbyLocating(true);
+    try{
+      const point=await locateNearby(navigator.geolocation,abort.signal);
+      if(id!==requestNumber.current||!alive.current)return;
+      setGps(point);setGpsPrompt(false);setGpsError('');setNearbyLocating(false);
+      await findNearby([point.longitude,point.latitude],{type:nearbyType,radius:nearbyRadius},'me',point.accuracy);
+    }catch(error){if(id===requestNumber.current&&alive.current){setNearbyLocating(false);setLoading(false);setSearchError(error instanceof Error&&error.name!=='AbortError'?error.message:'Поиск отменён. Можно искать вокруг карты.');}}
+  }
+  function refineNearby(type:NearbyType,radius:500|1500|3000){if(nearbyContext)void findNearby(nearbyContext.point,{type,radius},nearbyContext.from,nearbyContext.accuracy);}
   function locate() {
     if(tracking){setTracking(false);setGps(null);setLocating(false);setGpsPrompt(false);setGpsError('');return;}
     setPanelOpen(true);setGpsError('');setGps(null);
@@ -313,7 +334,7 @@ export function MapScreen() {
     };
     instance.on('click',pick);
     return()=>{instance.off('click',pick);pickPopup?.remove();};
-  },[ready,retry,manual,selected,importedSelection,view,loading,results.length]);
+  },[ready,retry,manual,selected,importedSelection,view,loading,results.length,nearbyType,nearbyRadius]);
   const detail = !!selected || manual || !!importedSelection;
   return <div style={{'--panel-height':`${visiblePanelHeight}px`,'--sheet-offset':`${sheetOffset}px`} as CSSProperties} className={`map-screen${homeSheet?' home-sheet':''}${homeSheet&&sheetDragOffset!==null?' sheet-dragging':''}${manual ? ' manual-mode' : ''}${selected ? ' selected-place' : ''}${view !== 'map' && !detail ? ' screen-page' : ''}${results.length ? ' results-sheet' : ''}${detail || view !== 'map' || results.length ? ' expanded-sheet' : ''}${sheetCompact ? ' compact-sheet' : ''}`}>
     <div className="search-overlay" ref={searchOverlay}>
@@ -334,10 +355,11 @@ export function MapScreen() {
       {!selected&&view!=='map'&&!manual&&<div className="screen-toolbar"><button className="soft-circle" aria-label="Вернуться на карту" onClick={()=>showView('map')}><Icon name="chevron" className="back-icon"/></button><strong>Notemap</strong><button className="soft-circle" aria-label="Профиль и настройки" onClick={()=>showView('profile')}><Icon name="more"/></button></div>}
       {!selected&&!importedSelection&&<header className="sheet-header"><div><h1>{manual ? 'Добавить место' : (nearbySearch||results.length) ? (nearbySearch?'Места рядом':'Результаты поиска') : view === 'list' ? 'Лучшие места' : view === 'profile' ? 'Профиль' : view === 'collections' ? 'Коллекции' : 'Notemap'}</h1>{!detail && !results.length && <p>{view === 'list' ? 'На основе твоих оценок и заметок' : view === 'profile' ? 'Твои личные места и заметки' : view === 'collections' ? 'Подборки любимых мест' : 'Твоя карта любимых мест'}</p>}</div>{(manual||results.length>0)&&<button className="sheet-close" aria-label="Свернуть панель" onClick={() => setPanelOpen(false)}><Icon name="close"/></button>}</header>}
       {!detail && view === 'map' && !results.length && !nearbySearch && <div className="category-cards">{categoryData.map(({id,icon,title}) => <button key={id} className={`category-card ${id}`} onClick={() => showView('list',id)}><span className="category-icon"><Icon name={icon as IconName}/></span><strong>{title}</strong><small>{placesCount(notes.filter(note=>note.category===id).length)}</small></button>)}</div>}
-      <div aria-live="polite">{nearbySearch&&<p className="nearby-caption">В радиусе 1,5 км от выбранной точки · Geoapify</p>}{loading&&nearbySearch&&<p role="status">Ищем места рядом…</p>}{searchError && <p className="notice error" role="alert">{searchError}</p>}{searched && results.length === 0 && <p className="notice">Ничего не найдено. Попробуй адрес или выбери точку вручную.</p>}</div>
+      {nearbySearch&&!detail&&<section className="nearby-controls" aria-label="Поиск организаций рядом"><div className="nearby-origin"><button className="secondary" disabled={loading} onClick={()=>void findNearMe()}>Рядом со мной</button><button className="secondary" onClick={()=>void findNearby()}>Вокруг карты</button></div><div className="nearby-types" aria-label="Тип организации">{nearbyTypes.map(type=><button key={type.id} aria-pressed={nearbyType===type.id} disabled={loading||!nearbyContext} onClick={()=>refineNearby(type.id,nearbyRadius)}>{type.title}</button>)}</div><label htmlFor="nearby-radius">Радиус поиска<select id="nearby-radius" value={nearbyRadius} disabled={loading||!nearbyContext} onChange={event=>refineNearby(nearbyType,Number(event.target.value) as 500|1500|3000)}><option value="500">500 м</option><option value="1500">1,5 км</option><option value="3000">3 км</option></select></label>{nearbyContext&&<p className="nearby-caption">{nearbyContext.from==='me'?'От твоей геопозиции':'От выбранной точки карты'} · {nearbyRadius===500?'500 м':nearbyRadius===1500?'1,5 км':'3 км'}{nearbyContext.accuracy!=null?` · GPS ±${Math.round(nearbyContext.accuracy)} м`:''}</p>}<small>Расстояние по прямой. Справочник Geoapify; координаты передаются при поиске.</small>{searched&&!loading&&!results.length&&nearbyContext&&nearbyRadius<3000&&<button onClick={()=>refineNearby(nearbyType,nearbyRadius===500?1500:3000)}>Расширить радиус поиска</button>}</section>}
+      <div aria-live="polite">{loading&&nearbySearch&&<p role="status">{nearbyLocating?'Определяем геопозицию…':'Ищем организации рядом…'}</p>}{searchError && <p className="notice error" role="alert">{searchError}</p>}{searched && results.length === 0 && <p className="notice">Ничего не найдено. Попробуй другую категорию, увеличь радиус или найди место по названию.</p>}</div>
       {results.length > 0 && <><div className="nearby-caption"><Icon name="pin"/>{nearbySearch?'Места в выбранной области':'Результаты поиска'} · {results.length}</div><ul className="nearby-places">{results.map((place, index) => <li className="nearby-entry" key={`${place.providerId ?? place.title}-${index}`}><button className="nearby-row" aria-pressed={previewPlace===place} onClick={() => previewResult(place)}><MiniMap longitude={place.longitude} latitude={place.latitude}/><span className="row-copy"><strong>{place.title}</strong><span>{place.address}</span><small>{place.distanceM!==undefined?`${place.distanceM} м по прямой`:mode==='организация'?'Организация':'Адрес на карте'}</small></span></button><button className={previewPlace===place?'nearby-save':'row-add'} aria-label={`Добавить заметку: ${place.title}`} onClick={()=>choose({...place,startEditing:true})}>{previewPlace===place?<><Icon name="bookmark"/>Заметка</>:<Icon name="plus"/>}</button></li>)}</ul><div className="nearby-credit"><a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></>}
       {gpsError && <p className="notice error" role="alert">{gpsError}</p>}
-      {gps && gpsPrompt && <section className="notice"><p>Геопозиция показана синей точкой. Точность около {Math.round(gps.accuracy)} м. Переместить карту?</p><button disabled={!ready} onClick={() => { map.current?.jumpTo({ center: [gps.longitude, gps.latitude], zoom: 15 }); setGpsPrompt(false); }}>Показать на карте</button><button disabled={!ready||loading} onClick={()=>{const point:[number,number]=[gps.longitude,gps.latitude];map.current?.jumpTo({center:point,zoom:15});setGpsPrompt(false);void findNearby(point);}}>Найти места здесь</button><button className="secondary" onClick={() => setGpsPrompt(false)}>Остаться здесь</button></section>}
+      {gps && gpsPrompt && <section className="notice"><p>Геопозиция показана синей точкой. Точность около {Math.round(gps.accuracy)} м. Переместить карту?</p><button disabled={!ready} onClick={() => { map.current?.jumpTo({ center: [gps.longitude, gps.latitude], zoom: 15 }); setGpsPrompt(false); }}>Показать на карте</button><button disabled={!ready||loading} onClick={()=>void findNearMe()}>Найти места здесь</button><button className="secondary" onClick={() => setGpsPrompt(false)}>Остаться здесь</button></section>}
       {manual && <section className="selection manual-selection"><p>Перемести карту так, чтобы пин оказался над нужным местом.</p><label htmlFor="custom-name">Название места</label><input autoFocus id="custom-name" value={name} onChange={event => setName(event.target.value)} maxLength={200} placeholder="Например, любимая кофейня"/><div className="manual-actions"><button disabled={!ready || !!mapError || !name.trim()} onClick={() => { const center = map.current?.getCenter(); if (center) choose({ title: name.trim(), address: 'Ручная точка', origin: 'custom', longitude: center.lng, latitude: center.lat }); }}>Выбрать точку</button><button className="secondary" onClick={() => setManual(false)}>Отмена</button></div></section>}
       {importedSelection&&<ImportedPlacePanel selection={importedSelection} onClose={()=>setImportedSelection(null)} onCreate={note=>choose({title:note.place.title,longitude:note.place.longitude,latitude:note.place.latitude,origin:'custom',address:'Моя точка'})}/>}
       <div hidden={!!importedSelection || manual || (!detail && view === 'map')}><NotesPanel selected={selected} active={activeNote} onNotes={setNotes} onOpen={openNote} bounds={bounds} view={view} presetCategory={presetCategory} onImports={setImportedLayers} onImportedOpen={openImported} onImportedMap={showImportedMap} initialImportId={initialImportId}/></div>
@@ -348,7 +370,7 @@ export function MapScreen() {
     <section className="map-area" aria-label="Карта мест"><div ref={container} className="map-canvas" />
       <div className="main-yandex-brand"><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer"><img src={`${import.meta.env.BASE_URL}maps/yandex-logo-ru.svg`} alt="Яндекс Карты"/></a><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer">Открыть в Картах</a></div>
       {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
-      <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти места вокруг центра карты" title="Места рядом с центром карты" onClick={()=>void findNearby()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label={tracking?'Выключить геопозицию':'Где я?'} aria-pressed={tracking} onClick={locate}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
+      <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти организации рядом со мной" title="Организации рядом со мной" onClick={()=>void findNearMe()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label={tracking?'Выключить геопозицию':'Где я?'} aria-pressed={tracking} onClick={locate}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
       {manual && ready && !mapError && <div className="center-pin" aria-hidden="true"><Icon name="pin"/></div>}
       {!ready && !mapError && mapKey && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
       {mapError && <div className="map-message error" role="alert"><p>{mapError}</p><button onClick={() => { setSelected(null); setManual(false); setRetry(value => value + 1); }}>Повторить</button></div>}
