@@ -1,5 +1,5 @@
 export const nearbyTypes=[
-  {id:'all',title:'Все',categories:'catering,commercial,service,healthcare,entertainment,leisure.park,tourism.sights'},
+  {id:'all',title:'Все',categories:'catering,commercial,service,healthcare,entertainment,leisure.park'},
   {id:'cafe',title:'Кафе',categories:'catering.cafe'},
   {id:'restaurant',title:'Рестораны',categories:'catering.restaurant,catering.fast_food'},
   {id:'shops',title:'Магазины',categories:'commercial'},

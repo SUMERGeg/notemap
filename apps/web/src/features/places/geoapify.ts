@@ -27,7 +27,7 @@ export async function searchNearby(center:[number,number],signal:AbortSignal,fet
   const response=await fetcher(url,{credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal});
   if(!response.ok)throw new Error(response.status===429?'Лимит поиска исчерпан. Попробуй позже или выбери точку вручную.':'Поиск рядом временно недоступен. Можно найти место по названию или выбрать точку вручную.');
   const body=await response.json();if(!Array.isArray(body.features))throw new Error('Некорректный ответ поиска рядом.');
-  const found=normalizeResults({features:body.features.slice(0,100).filter((f:any)=>typeof f?.properties?.name==='string'&&f.properties.name.trim()&&f.properties.country_code?.toLowerCase()==='ru')});
+  const found=normalizeResults({features:body.features.slice(0,100).filter((f:any)=>typeof f?.properties?.name==='string'&&f.properties.name.trim()&&typeof f.properties.country_code==='string'&&f.properties.country_code.toLowerCase()==='ru')});
   const seen=new Set<string>();
   const candidates=found.map(p=>({...p,title:p.title.trim(),distanceM:Math.round(distanceMeters(center,[p.longitude,p.latitude]))}))
     .filter(p=>{if(!p.providerId||!/^[a-f\d]{6,2048}$/i.test(p.providerId)||p.distanceM>radius||seen.has(p.providerId))return false;seen.add(p.providerId);return true;}).sort((a,b)=>a.distanceM-b.distanceM);
