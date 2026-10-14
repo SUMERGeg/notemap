@@ -37,6 +37,7 @@ jobs:
       NOTEMAP_BASE_PATH: ${{ inputs.base_path || '/notemap/' }}
       VITE_GEOAPIFY_API_KEY: ${{ vars.VITE_GEOAPIFY_API_KEY }}
       VITE_YANDEX_MAPS_API_KEY: ${{ vars.VITE_YANDEX_MAPS_API_KEY }}
+      VITE_YANDEX_JS_API_KEY: ${{ vars.VITE_YANDEX_JS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
