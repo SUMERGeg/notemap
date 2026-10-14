@@ -1,6 +1,7 @@
 import { api } from './api';
 import { StoragePanel } from './StoragePanel';
 import { PwaUpdatePanel } from './PwaUpdatePanel';
+import './profile.css';
 import { CollectionsPanel } from './CollectionsPanel';
 import { ItemReviews, loadItemTypes, type ItemType } from './ItemReviews';
 import { useEffect, useRef, useState } from 'react';
@@ -137,13 +138,12 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
     if (!active) { onOpen(null); return; }
     setCategory(active.category); setRating(active.rating?.toString() ?? ''); setText(active.text); setDate(active.visited_on ?? ''); setEditing(false); setError('');
   }
-  return <section className="selection note-workspace">{view === 'profile' && <div className="account-card"><span className="account-icon"><Icon name="user"/></span><div><h2>На этом устройстве</h2><p>Заметки и фото хранятся локально</p><span className="privacy-label"><Icon name="lock"/>Личное пространство</span></div></div>}
-    {view === 'profile' && <>
+  return <section className="selection note-workspace">{view === 'profile' && <div className="profile-identity"><span className="profile-avatar"><Icon name="user"/></span><h2>Личное пространство</h2><p><Icon name="lock"/>Данные на этом устройстве</p></div>}
+    {view === 'profile' && <div className="profile-settings">
     <PwaUpdatePanel/>
     <StoragePanel onRestored={()=>window.location.reload()}/>
-    <ShareLinksPanel/>
-    <a className="text-action" href="#map-compare">Сравнить Яндекс и Geoapify</a>
-    </>}
+    <details className="profile-card profile-extra"><summary><Icon name="sliders"/>Дополнительно<Icon name="chevron"/></summary><div><ShareLinksPanel/><a className="profile-row" href="#map-compare"><Icon name="map"/><span>Сравнить карты</span><Icon name="chevron"/></a></div></details>
+    </div>}
     {editor&&<div className="editor-toolbar"><button type="button" className="text-action" disabled={busy} onClick={cancelEdit}>Отмена</button><h1>{active?'Редактировать':'Добавить заметку'}</h1><button type="submit" form="note-editor" className="text-action save-action" disabled={busy}>{busy?'Сохраняем…':'Сохранить'}</button></div>}
     {selected&&<div className={`place-presentation${editor?' is-editing':''}`}>
       <div className="place-hero"><PlaceCover noteId={active?.id} category={active?.category??category} refresh={photoVersion} className="hero-cover"/>
