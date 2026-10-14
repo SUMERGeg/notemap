@@ -16,6 +16,8 @@ import { ImportedPlacePanel } from '../notes/ImportedCollectionsPanel';
 import { createMapStartup, getMapRenderPreferences } from './startup';
 import { yandexMapStyle } from './yandex-style';
 import './yandex-main.css';
+import { watchLocation, accuracyRadius, type LocationPoint } from './live-location';
+import './live-location.css';
 import { HomeSheetHandle } from './HomeSheetHandle';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
@@ -38,7 +40,8 @@ export function MapScreen() {
   const controller = useRef<AbortController | null>(null);
   const requestNumber = useRef(0);
   const alive = useRef(true);
-  const gpsBusy = useRef(false);
+  const [tracking,setTracking]=useState(false);
+  const [gpsPrompt,setGpsPrompt]=useState(false);
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -54,8 +57,25 @@ export function MapScreen() {
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<PlaceCandidate | null>(null);
   const [gpsError, setGpsError] = useState('');
-  const [gps, setGps] = useState<{ longitude: number; latitude: number; accuracy: number } | null>(null);
+  const [gps, setGps] = useState<LocationPoint|null>(null);
   const [locating, setLocating] = useState(false);
+  useEffect(()=>{
+    if(!tracking||!navigator.geolocation)return;
+    return watchLocation(navigator.geolocation,{
+      changed:point=>{setGps(point);setLocating(false);setGpsError('');},
+      failed:(message,denied)=>{setLocating(false);setGpsError(message);if(denied){setTracking(false);setGps(null);setGpsPrompt(false);}},
+    });
+  },[tracking]);
+  useEffect(()=>{
+    const instance=map.current;if(!ready||!instance||!gps)return;
+    const element=document.createElement('div');element.className='live-location';element.setAttribute('role','img');element.setAttribute('aria-label',`Текущая геопозиция, точность около ${Math.round(gps.accuracy)} м`);
+    const halo=document.createElement('span');halo.className='live-location-halo';
+    const dot=document.createElement('span');dot.className='live-location-dot';element.append(halo,dot);
+    const gpsMarker=new maplibregl.Marker({element,anchor:'center'}).setLngLat([gps.longitude,gps.latitude]).addTo(instance);
+    const resize=()=>{const diameter=accuracyRadius(gps.accuracy,gps.latitude,instance.getZoom())*2;halo.style.width=`${diameter}px`;halo.style.height=`${diameter}px`;};
+    resize();instance.on('zoom',resize);
+    return()=>{instance.off('zoom',resize);gpsMarker.remove();};
+  },[ready,retry,gps]);
   const [notes, setNotes] = useState<PersonalNote[]>([]);
   const [activeNote, setActiveNote] = useState<PersonalNote | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
@@ -255,17 +275,10 @@ export function MapScreen() {
     finally{window.clearTimeout(timeout);if(id===requestNumber.current&&alive.current)setLoading(false);}
   }
   function locate() {
-    setPanelOpen(true);
-    if (gpsBusy.current) return;
-    setGpsError(''); setGps(null);
+    if(tracking){setTracking(false);setGps(null);setLocating(false);setGpsPrompt(false);setGpsError('');return;}
+    setPanelOpen(true);setGpsError('');setGps(null);
     if (!navigator.geolocation) { setGpsError('Геопозиция недоступна. Используй поиск или ручную точку.'); return; }
-    gpsBusy.current = true; setLocating(true);
-    navigator.geolocation.getCurrentPosition(position => {
-      gpsBusy.current = false; if (!alive.current) return; setLocating(false);
-      setGps({ longitude: position.coords.longitude, latitude: position.coords.latitude, accuracy: position.coords.accuracy });
-    }, () => {
-      gpsBusy.current = false; if (!alive.current) return; setLocating(false); setGpsError('Геопозиция недоступна. Поиск и ручная точка остаются доступны.');
-    }, { timeout: 10000, maximumAge: 0, enableHighAccuracy: false });
+    setLocating(true);setGpsPrompt(true);setTracking(true);
   }
   function showView(next: 'map' | 'list' | 'profile' | 'collections', category: string | null = null) {
     invalidateSearch();setNearbySearch(false);
@@ -324,7 +337,7 @@ export function MapScreen() {
       <div aria-live="polite">{nearbySearch&&<p className="nearby-caption">В радиусе 1,5 км от выбранной точки · Geoapify</p>}{loading&&nearbySearch&&<p role="status">Ищем места рядом…</p>}{searchError && <p className="notice error" role="alert">{searchError}</p>}{searched && results.length === 0 && <p className="notice">Ничего не найдено. Попробуй адрес или выбери точку вручную.</p>}</div>
       {results.length > 0 && <><div className="nearby-caption"><Icon name="pin"/>{nearbySearch?'Места в выбранной области':'Результаты поиска'} · {results.length}</div><ul className="nearby-places">{results.map((place, index) => <li className="nearby-entry" key={`${place.providerId ?? place.title}-${index}`}><button className="nearby-row" aria-pressed={previewPlace===place} onClick={() => previewResult(place)}><MiniMap longitude={place.longitude} latitude={place.latitude}/><span className="row-copy"><strong>{place.title}</strong><span>{place.address}</span><small>{place.distanceM!==undefined?`${place.distanceM} м по прямой`:mode==='организация'?'Организация':'Адрес на карте'}</small></span></button><button className={previewPlace===place?'nearby-save':'row-add'} aria-label={`Добавить заметку: ${place.title}`} onClick={()=>choose({...place,startEditing:true})}>{previewPlace===place?<><Icon name="bookmark"/>Заметка</>:<Icon name="plus"/>}</button></li>)}</ul><div className="nearby-credit"><a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></>}
       {gpsError && <p className="notice error" role="alert">{gpsError}</p>}
-      {gps && <section className="notice"><p>Геопозиция определена. Точность около {Math.round(gps.accuracy)} м. Переместить карту?</p><button disabled={!ready} onClick={() => { map.current?.jumpTo({ center: [gps.longitude, gps.latitude], zoom: 15 }); setGps(null); }}>Показать на карте</button><button disabled={!ready||loading} onClick={()=>{const point:[number,number]=[gps.longitude,gps.latitude];map.current?.jumpTo({center:point,zoom:15});setGps(null);void findNearby(point);}}>Найти места здесь</button><button className="secondary" onClick={() => setGps(null)}>Остаться здесь</button></section>}
+      {gps && gpsPrompt && <section className="notice"><p>Геопозиция показана синей точкой. Точность около {Math.round(gps.accuracy)} м. Переместить карту?</p><button disabled={!ready} onClick={() => { map.current?.jumpTo({ center: [gps.longitude, gps.latitude], zoom: 15 }); setGpsPrompt(false); }}>Показать на карте</button><button disabled={!ready||loading} onClick={()=>{const point:[number,number]=[gps.longitude,gps.latitude];map.current?.jumpTo({center:point,zoom:15});setGpsPrompt(false);void findNearby(point);}}>Найти места здесь</button><button className="secondary" onClick={() => setGpsPrompt(false)}>Остаться здесь</button></section>}
       {manual && <section className="selection manual-selection"><p>Перемести карту так, чтобы пин оказался над нужным местом.</p><label htmlFor="custom-name">Название места</label><input autoFocus id="custom-name" value={name} onChange={event => setName(event.target.value)} maxLength={200} placeholder="Например, любимая кофейня"/><div className="manual-actions"><button disabled={!ready || !!mapError || !name.trim()} onClick={() => { const center = map.current?.getCenter(); if (center) choose({ title: name.trim(), address: 'Ручная точка', origin: 'custom', longitude: center.lng, latitude: center.lat }); }}>Выбрать точку</button><button className="secondary" onClick={() => setManual(false)}>Отмена</button></div></section>}
       {importedSelection&&<ImportedPlacePanel selection={importedSelection} onClose={()=>setImportedSelection(null)} onCreate={note=>choose({title:note.place.title,longitude:note.place.longitude,latitude:note.place.latitude,origin:'custom',address:'Моя точка'})}/>}
       <div hidden={!!importedSelection || manual || (!detail && view === 'map')}><NotesPanel selected={selected} active={activeNote} onNotes={setNotes} onOpen={openNote} bounds={bounds} view={view} presetCategory={presetCategory} onImports={setImportedLayers} onImportedOpen={openImported} onImportedMap={showImportedMap} initialImportId={initialImportId}/></div>
@@ -335,7 +348,7 @@ export function MapScreen() {
     <section className="map-area" aria-label="Карта мест"><div ref={container} className="map-canvas" />
       <div className="main-yandex-brand"><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer"><img src={`${import.meta.env.BASE_URL}maps/yandex-logo-ru.svg`} alt="Яндекс Карты"/></a><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer">Открыть в Картах</a></div>
       {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
-      <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти места вокруг центра карты" title="Места рядом с центром карты" onClick={()=>void findNearby()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label="Где я?" onClick={locate} disabled={locating}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
+      <div className="map-tools" aria-label="Действия на карте"><button className="round-button" aria-label="Найти места вокруг центра карты" title="Места рядом с центром карты" onClick={()=>void findNearby()} disabled={!ready||loading||!!mapError}><Icon name="search"/></button><button className="round-button" aria-label={tracking?'Выключить геопозицию':'Где я?'} aria-pressed={tracking} onClick={locate}>{locating ? <span className="spinner"/> : <Icon name="location"/>}</button><button className="round-button" aria-label="Мои места и фильтры" onClick={() => showView('list')}><Icon name="layers"/></button></div>
       {manual && ready && !mapError && <div className="center-pin" aria-hidden="true"><Icon name="pin"/></div>}
       {!ready && !mapError && mapKey && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
       {mapError && <div className="map-message error" role="alert"><p>{mapError}</p><button onClick={() => { setSelected(null); setManual(false); setRetry(value => value + 1); }}>Повторить</button></div>}
