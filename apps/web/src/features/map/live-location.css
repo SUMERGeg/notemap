@@ -1,1 +1,6 @@
 .live-location{width:22px;height:22px;pointer-events:none;z-index:2}.live-location-dot{position:absolute;inset:0;border-radius:50%;background:#087bff;border:3px solid white;box-shadow:0 2px 8px #005de84d}.live-location-halo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;background:#087bff22;border:1px solid #087bff33;pointer-events:none}.map-tools button[aria-pressed=true]{color:#0068ff;background:#eaf3ff;box-shadow:0 0 0 2px #0068ff40}
+.map-tools .spinner{width:22px;height:22px;border-width:2.5px;color:#0068ff}
+.location-toast{position:absolute;right:calc(100% + 12px);bottom:0;width:270px;max-width:calc(100vw - 104px);padding:14px 16px;border:1px solid #e8ebf1;border-radius:18px;background:#fffffff5;color:#343d50;box-shadow:0 6px 24px #17233924;font-size:14px;line-height:1.4;transform-origin:right center;animation:location-toast 4.5s both;pointer-events:none}
+.location-toast::after{content:'';position:absolute;right:-5px;bottom:19px;width:9px;height:9px;background:#fff;border-top:1px solid #e8ebf1;border-right:1px solid #e8ebf1;transform:rotate(45deg)}
+@keyframes location-toast{0%{opacity:0;transform:translateX(12px) scale(.96)}6%,92%{opacity:1;transform:translateX(0) scale(1)}100%{opacity:0;transform:translateX(8px) scale(.98)}}
+@media(prefers-reduced-motion:reduce){.location-toast{animation:none}}
