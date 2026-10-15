@@ -19,6 +19,7 @@ import './yandex-main.css';
 import { watchLocation, accuracyRadius, type LocationPoint } from './live-location';
 import './live-location.css';
 import { HomeSheetHandle } from './HomeSheetHandle';
+import './home-sheet.css';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
 const mapKey=import.meta.env.VITE_YANDEX_MAPS_API_KEY?.trim()??'';
@@ -92,9 +93,9 @@ export function MapScreen() {
   const [popupElement,setPopupElement] = useState<HTMLElement|null>(null);
   const [panelHeight,setPanelHeight] = useState(0);
   const homeSheet=view==='map'&&!selected&&!manual&&!importedSelection&&results.length===0;
-  const sheetTravel=Math.max(0,panelHeight-48);
+  const sheetTravel=panelHeight;
   const sheetOffset=homeSheet?(sheetDragOffset??(sheetCompact?sheetTravel:0)):0;
-  const visiblePanelHeight=homeSheet&&window.matchMedia('(max-width:700px)').matches?Math.max(48,panelHeight-sheetOffset):panelHeight;
+  const visiblePanelHeight=homeSheet?Math.max(0,panelHeight-sheetOffset):panelHeight;
   useEffect(()=>{
     if(!panel.current)return;
     const observer=new ResizeObserver(entries=>setPanelHeight(entries[0].target.getBoundingClientRect().height));
@@ -245,7 +246,7 @@ export function MapScreen() {
     controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false);  setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
   }
   function closeSearchPanel() {
-    invalidateSearch(); setManual(false); setPanelOpen(false); setSheetCompact(false);
+    invalidateSearch(); setManual(false); setPanelOpen(true); setSheetCompact(true);
   }
   async function search(event: React.FormEvent) {
     
@@ -315,10 +316,10 @@ export function MapScreen() {
       <button ref={searchSettings} className="round-button" aria-label="Настройки поиска" aria-expanded={searchOptions} aria-controls="search-options" onClick={() => setSearchOptions(value => !value)}><Icon name="sliders"/></button>
       {searchOptions && <div id="search-options" className="search-options"><label htmlFor="search-mode">Что ищем</label><select autoFocus id="search-mode" value={mode} onChange={event => { invalidateSearch(); setMode(event.target.value as SearchMode); }}><option value="организация">Организации</option><option value="адрес">Адрес или город в России</option></select></div>}
     </div>
-    {!panelOpen && <button className="panel-toggle" aria-controls="map-panel" onClick={() => setPanelOpen(true)}>Мои места <Icon name="chevron"/></button>}
-    <aside ref={panel} id="map-panel" className="sidebar" hidden={!panelOpen} aria-label="Поиск и личные места">
+    {homeSheet && <button className="panel-toggle" aria-controls="map-panel-content" aria-expanded={!sheetCompact} onClick={() => { setPanelOpen(true); setSheetCompact(value => !value); }}>Мои места <Icon name="chevron"/></button>}
+    <aside ref={panel} id="map-panel" className="sidebar" hidden={!panelOpen} inert={homeSheet&&sheetCompact} aria-label="Поиск и личные места">
       {homeSheet?<HomeSheetHandle compact={sheetCompact} travel={sheetTravel} onCompact={setSheetCompact} onOffset={setSheetDragOffset}/>:!selected&&!importedSelection&&view==='map'&&!manual&&<button className="sheet-handle" aria-label={sheetCompact?'Развернуть панель':'Уменьшить панель'} aria-expanded={!sheetCompact} aria-controls="map-panel" onClick={()=>setSheetCompact(value=>!value)}><span/></button>}
-      <div id="map-panel-content" className="sheet-content" inert={homeSheet&&sheetCompact&&window.matchMedia('(max-width:700px)').matches}>
+      <div id="map-panel-content" className="sheet-content" inert={homeSheet&&sheetCompact}>
       {!selected&&view!=='map'&&!manual&&<div className="screen-toolbar"><button className="soft-circle" aria-label="Вернуться на карту" onClick={()=>showView('map')}><Icon name="chevron" className="back-icon"/></button><strong>Notemap</strong><button className="soft-circle" aria-label="Профиль и настройки" onClick={()=>showView('profile')}><Icon name="more"/></button></div>}
       {!selected&&!importedSelection&&<header className="sheet-header"><div><h1>{manual ? 'Добавить место' : results.length ? 'Результаты поиска' : view === 'list' ? (listMode === 'all' ? 'Все заметки' : listMode === 'items' ? 'Лучшие предметы' : 'Лучшие места') : view === 'profile' ? 'Профиль' : view === 'collections' ? 'Коллекции' : 'Notemap'}</h1>{!detail && !results.length && <p>{view === 'list' ? (listMode === 'all' ? 'Все твои сохранённые места' : listMode === 'items' ? 'Сравнивай предметы в разных местах' : 'На основе твоих оценок и заметок') : view === 'profile' ? 'Твои личные места и заметки' : view === 'collections' ? 'Подборки любимых мест' : 'Твоя карта любимых мест'}</p>}</div>{(manual||results.length>0)&&<button className="sheet-close" aria-label="Свернуть панель" onClick={closeSearchPanel}><Icon name="close"/></button>}</header>}
       {!detail && view === 'map' && !results.length && <div className="category-cards">{categoryData.map(({id,icon,title}) => <button key={id} className={`category-card ${id}`} onClick={() => showView('list',id)}><span className="category-icon"><Icon name={icon as IconName}/></span><strong>{title}</strong><small>{placesCount(notes.filter(note=>note.category===id).length)}</small></button>)}</div>}

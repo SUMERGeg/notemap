@@ -1,0 +1,9 @@
+.map-screen.home-sheet .sidebar{max-height:43dvh;transform:translate3d(0,var(--sheet-offset,0px),0);visibility:visible;transition:transform 360ms cubic-bezier(.22,1,.36,1),visibility 0s;animation:none;will-change:transform}
+.map-screen.home-sheet.compact-sheet:not(.sheet-dragging) .sidebar{visibility:hidden;pointer-events:none;transition:transform 360ms cubic-bezier(.22,1,.36,1),visibility 0s 360ms}
+.map-screen.home-sheet.compact-sheet:not(.sheet-dragging) .sheet-content{opacity:1;visibility:inherit;transition:none}
+.map-screen.home-sheet .panel-toggle{display:flex;align-items:center;gap:9px;z-index:4;bottom:calc(110px + var(--panel-height,0px));min-height:44px;padding:10px 16px;border:1px solid #edf0f5;border-radius:16px;background:#fff;color:#172033;transition:bottom 360ms cubic-bezier(.22,1,.36,1);box-shadow:0 3px 14px #17203314}
+.map-screen.home-sheet .panel-toggle .icon{width:18px;height:18px;transform:rotate(90deg);transition:transform 240ms ease}
+.map-screen.home-sheet .panel-toggle[aria-expanded=false] .icon{transform:rotate(-90deg)}
+.map-screen.home-sheet.sheet-dragging .sidebar,.map-screen.home-sheet.sheet-dragging .panel-toggle{transition:none}
+@media(max-width:700px){.map-screen.home-sheet .panel-toggle{bottom:calc(90px + env(safe-area-inset-bottom) + var(--panel-height,0px))}}
+@media(prefers-reduced-motion:reduce){.map-screen.home-sheet .sidebar,.map-screen.home-sheet .panel-toggle,.map-screen.home-sheet .panel-toggle .icon{transition:none!important}}
