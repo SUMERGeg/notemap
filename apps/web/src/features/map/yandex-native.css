@@ -1,0 +1,12 @@
+.native-marker{position:relative;width:0;height:0;overflow:visible}
+.native-marker> :first-child{transform:translate(-50%,-100%)}
+.native-marker-center> :first-child{transform:translate(-50%,-50%)}
+.native-selection-dot{display:block;width:22px;height:22px;background:#0068ff;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 9px #0068ff50}
+.native-popup{position:relative;max-width:calc(100vw - 40px);padding:16px;background:#fff;border-radius:18px;box-shadow:0 6px 30px #17233930;color:#172033;margin-bottom:16px;line-height:1.4}
+.native-popup-close{position:absolute;right:5px;top:5px;padding:0;min-height:28px;width:28px;border-radius:50%;background:#f2f4f8;color:#5f6a7c;font-size:22px}
+.native-popup .map-pick{padding-top:12px}
+.native-popup.result-popup{padding:0;background:none;box-shadow:none}
+.native-popup .cluster-places{max-height:40dvh;overflow:auto}
+.map-area .ymaps3--map-copyrights_top{top:calc(78px + env(safe-area-inset-top));left:14px}
+.map-area .ymaps3--controls_top.ymaps3--controls_left{top:calc(112px + env(safe-area-inset-top));left:14px}
+.map-area .ymaps3--control-button{color:#172033}

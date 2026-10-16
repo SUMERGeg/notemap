@@ -3,8 +3,8 @@ export function locationPoint(coords:GeolocationCoordinates):LocationPoint|null{
   const {longitude,latitude,accuracy}=coords;
   return Number.isFinite(longitude)&&Math.abs(longitude)<=180&&Number.isFinite(latitude)&&Math.abs(latitude)<=90&&Number.isFinite(accuracy)&&accuracy>=0?{longitude,latitude,accuracy}:null;
 }
-export function accuracyRadius(accuracy:number,latitude:number,zoom:number){
-  const metersPerPixel=40075016.686*Math.max(.01,Math.cos(latitude*Math.PI/180))/(512*2**zoom);
+export function accuracyRadius(accuracy:number,latitude:number,zoom:number,tileSize=512){
+  const metersPerPixel=40075016.686*Math.max(.01,Math.cos(latitude*Math.PI/180))/(tileSize*2**zoom);
   return Math.max(12,Math.min(150,accuracy/metersPerPixel));
 }
 export function watchLocation(geo:Geolocation,{changed,failed}:{changed:(point:LocationPoint)=>void;failed:(message:string,denied:boolean)=>void},visibility:Pick<Document,'hidden'|'addEventListener'|'removeEventListener'>=document){

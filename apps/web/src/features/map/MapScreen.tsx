@@ -1,30 +1,24 @@
 import { Icon, type IconName } from '../../components/Icon';
-import { installClusteredMarkers } from './clustered-markers';
+import { NativeMapController, NativeMarker, NativePopup, selectionMarker, installNativeMarkers as installClusteredMarkers, type MapClick } from './yandex-map';
+import { loadYandexJs } from './yandex-js';
+import './yandex-native.css';
 import { mapPickHint } from './map-pick';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_VIEWPORT, readViewport, VIEWPORT_KEY, type Viewport } from './viewport';
 import { searchPlaces, type PlaceCandidate, type SearchMode } from '../places/geoapify';
 import { NotesPanel, type PersonalNote } from '../notes/NotesPanel';
 import { categoryData, MiniMap, placesCount } from '../../components/PlaceVisuals';
 import type { ImportedLayer, ImportedSelection } from '../notes/import-api';
 import { ImportedPlacePanel } from '../notes/ImportedCollectionsPanel';
-import { createMapStartup, getMapRenderPreferences } from './startup';
-import { yandexMapStyle } from './yandex-style';
-import './yandex-main.css';
 import { watchLocation, accuracyRadius, type LocationPoint } from './live-location';
 import './live-location.css';
 import { HomeSheetHandle } from './HomeSheetHandle';
 import './home-sheet.css';
 
 const key = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim() ?? '';
-const mapKey=import.meta.env.VITE_YANDEX_MAPS_API_KEY?.trim()??'';
-// Vite prebundles the main module; bundle the module worker explicitly as well.
-maplibregl.setWorkerUrl(workerUrl);
+const mapKey=import.meta.env.VITE_YANDEX_JS_API_KEY?.trim()??'';
 function initialViewport(): Viewport {
   try { return readViewport(localStorage.getItem(VIEWPORT_KEY)); } catch { return DEFAULT_VIEWPORT; }
 }
@@ -32,12 +26,12 @@ function initialViewport(): Viewport {
 export function MapScreen() {
   const container = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
-  const popup = useRef<maplibregl.Popup|null>(null);
+  const popup = useRef<NativePopup|null>(null);
   const searchOverlay = useRef<HTMLDivElement>(null);
   const searchSettings = useRef<HTMLButtonElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const marker = useRef<maplibregl.Marker | null>(null);
+  const map = useRef<NativeMapController | null>(null);
+  const marker = useRef<NativeMarker | null>(null);
   const controller = useRef<AbortController | null>(null);
   const requestNumber = useRef(0);
   const alive = useRef(true);
@@ -46,7 +40,6 @@ export function MapScreen() {
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState('');
   const [retry, setRetry] = useState(0);
-  const [recovering, setRecovering] = useState(false);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('организация');
   const [results, setResults] = useState<PlaceCandidate[]>([]);
@@ -76,8 +69,8 @@ export function MapScreen() {
     const element=document.createElement('div');element.className='live-location';element.setAttribute('role','img');element.setAttribute('aria-label',`Текущая геопозиция, точность около ${Math.round(gps.accuracy)} м`);
     const halo=document.createElement('span');halo.className='live-location-halo';
     const dot=document.createElement('span');dot.className='live-location-dot';element.append(halo,dot);
-    const gpsMarker=new maplibregl.Marker({element,anchor:'center'}).setLngLat([gps.longitude,gps.latitude]).addTo(instance);
-    const resize=()=>{const diameter=accuracyRadius(gps.accuracy,gps.latitude,instance.getZoom())*2;halo.style.width=`${diameter}px`;halo.style.height=`${diameter}px`;};
+    const gpsMarker=new NativeMarker({element,anchor:'center'}).setLngLat([gps.longitude,gps.latitude]).addTo(instance);
+    const resize=()=>{const diameter=accuracyRadius(gps.accuracy,gps.latitude,instance.getZoom(),256)*2;halo.style.width=`${diameter}px`;halo.style.height=`${diameter}px`;};
     resize();instance.on('zoom',resize);
     return()=>{instance.off('zoom',resize);gpsMarker.remove();};
   },[ready,retry,gps]);
@@ -148,7 +141,7 @@ export function MapScreen() {
   function showImportedMap(layer:ImportedLayer){
     showView('map');
     if(!map.current||!layer.items.length)return;
-    const bounds=new maplibregl.LngLatBounds();layer.items.forEach(note=>bounds.extend([note.place.longitude,note.place.latitude]));
+    const bounds:[number,number][]=layer.items.map(note=>[note.place.longitude,note.place.latitude]);
     const mobile=window.matchMedia('(max-width:700px)').matches;
     map.current.fitBounds(bounds,{maxZoom:15,duration:0,padding:{top:110,bottom:mobile?Math.min(panelHeight+95,map.current.getContainer().clientHeight*.6):80,left:mobile?45:400,right:45}});
   }
@@ -170,52 +163,31 @@ export function MapScreen() {
 
   useEffect(() => {
     alive.current = true;
-    if (!mapKey || !container.current) {setMapError('Не настроен ключ Яндекс Tiles API.');return;}
-    setReady(false); setMapError('');setRecovering(false);
-    const viewport = initialViewport();
-    const rendering=getMapRenderPreferences();
-    let instance: maplibregl.Map;
-    try {
-      instance = new maplibregl.Map({ container: container.current,
-        style: yandexMapStyle(mapKey,rendering),
-        pixelRatio:rendering.pixelRatio,fadeDuration:rendering.reduceMotion?0:160,
-        center: [viewport.longitude, viewport.latitude], zoom: viewport.zoom, maxZoom: 18, attributionControl: false });
-    } catch { setMapError('Карта не запустилась. Проверь поддержку WebGL в браузере.'); return; }
-    map.current = instance;
-    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    instance.addControl(new maplibregl.AttributionControl({ compact: false }));
-    function updateBounds() {
-      const b = instance.getBounds();
-      const width = b.getEast() - b.getWest();
-      const wrap = (value: number) => ((value + 180) % 360 + 360) % 360 - 180;
-      setBounds([width >= 360 ? -180 : wrap(b.getWest()), Math.max(-90,b.getSouth()), width >= 360 ? 180 : wrap(b.getEast()), Math.min(90,b.getNorth())].join(','));
-    }
-    const startup=createMapStartup({
-      ready:()=>{setReady(true);setMapError('');setRecovering(false);updateBounds();},
-      recover:()=>{
-        setRecovering(true);
-        instance.setPixelRatio(1);
-        const fallbackStyle=yandexMapStyle(mapKey,{pixelRatio:1,reduceMotion:true});
-        const source=instance.getSource('yandex');
-        if(source?.type==='raster'){
-          const tiles=fallbackStyle.sources.yandex;
-          if(tiles.type==='raster'&&tiles.tiles)(source as maplibregl.RasterTileSource).setTiles(tiles.tiles);
-        }else instance.setStyle(fallbackStyle);
-      },
-      failed:()=>{setRecovering(false);setMapError('Карта не загрузилась. Проверь интернет и попробуй ещё раз.');},
+    let cancelled=false,instance:NativeMapController|undefined;
+    setReady(false);setMapError('');
+    if (!mapKey || !container.current) {setMapError('Не настроен ключ Яндекс JavaScript API.');return;}
+    const updateBounds=()=>{
+      if(!instance)return;
+      const b=instance.getBounds();
+      const wrap=(value:number)=>((value+180)%360+360)%360-180;
+      const width=b.getEast()-b.getWest();
+      setBounds([width>=360?-180:wrap(b.getWest()),Math.max(-90,b.getSouth()),width>=360?180:wrap(b.getEast()),Math.min(90,b.getNorth())].join(','));
+      const center=instance.getCenter();
+      try{localStorage.setItem(VIEWPORT_KEY,JSON.stringify({longitude:wrap(center.lng),latitude:center.lat,zoom:Math.min(18,instance.getZoom())}));}catch{/* Optional storage. */}
+    };
+    void loadYandexJs(mapKey).then(sdk=>{
+      if(cancelled||!container.current)return;
+      instance=new NativeMapController(sdk,container.current,initialViewport(),{
+        ready:()=>{if(!cancelled){setReady(true);setMapError('');updateBounds();}},
+        failed:()=>{if(!cancelled)setMapError('Карта не загрузилась. Проверь интернет и попробуй ещё раз.');},
+      });
+      map.current=instance;
+      instance.on('moveend',updateBounds);
+    }).catch(()=>{
+      if(!cancelled)setMapError('Не удалось загрузить Яндекс JS API. Проверь интернет и настройки ключа JavaScript API.');
     });
-    instance.on('load',startup.loaded);
-    instance.on('sourcedata',event=>{if(event.tile?.state==='loaded')startup.tileLoaded();});
-    instance.on('render',startup.rendered);
-    instance.on('error',startup.failed);
-    instance.on('webglcontextlost',()=>{setReady(false);setMapError('Браузер потерял доступ к графике. Попробуй загрузить карту снова.');});
-    instance.on('moveend', () => {
-      updateBounds();
-      const center = instance.getCenter();
-      try { localStorage.setItem(VIEWPORT_KEY, JSON.stringify({ longitude: center.lng, latitude: center.lat, zoom: instance.getZoom() })); } catch { /* Optional storage. */ }
-    });
-    return () => { startup.dispose(); alive.current = false; controller.current?.abort(); marker.current?.remove(); marker.current = null; instance.remove(); map.current = null; };
-  }, [retry]);
+    return()=>{cancelled=true;alive.current=false;controller.current?.abort();marker.current?.remove();marker.current=null;instance?.remove();map.current=null;};
+  },[retry]);
 
   useEffect(()=>{
     if(!mapError)return;
@@ -234,17 +206,17 @@ export function MapScreen() {
     const instance = map.current;
     if (!instance) return;
     marker.current?.remove();
-    marker.current = new maplibregl.Marker({ color: '#1769e8' }).setLngLat([candidate.longitude, candidate.latitude]).addTo(instance);
+    marker.current = selectionMarker().setLngLat([candidate.longitude, candidate.latitude]).addTo(instance);
     instance.jumpTo({ center: [candidate.longitude, candidate.latitude], zoom: Math.max(15, instance.getZoom()), padding:{top:0,bottom:0,left:0,right:0} });
   }
   function previewResult(place: PlaceCandidate) {
     setPreviewPlace(place); marker.current?.remove();
     if(!map.current)return;
-    marker.current=new maplibregl.Marker({color:'#0068ff'}).setLngLat([place.longitude,place.latitude]).addTo(map.current);
+    marker.current=selectionMarker().setLngLat([place.longitude,place.latitude]).addTo(map.current);
     map.current.jumpTo({center:[place.longitude,place.latitude],zoom:Math.max(15,map.current.getZoom()),padding:{top:0,bottom:map.current.getContainer().clientHeight*.48,left:0,right:0}});
     popup.current?.remove();
     const host=document.createElement('div');
-    popup.current=new maplibregl.Popup({closeButton:false,closeOnClick:false,anchor:'bottom',offset:[0,-48],maxWidth:'280px',className:'result-popup'}).setLngLat([place.longitude,place.latitude]).setDOMContent(host).addTo(map.current);
+    popup.current=new NativePopup({closeButton:false,closeOnClick:false,anchor:'bottom',offset:[0,-48],maxWidth:'280px',className:'result-popup'}).setLngLat([place.longitude,place.latitude]).setDOMContent(host).addTo(map.current);
     setPopupElement(host);
   }
   function invalidateSearch() {
@@ -289,21 +261,18 @@ export function MapScreen() {
   useEffect(()=>{
     const instance=map.current;
     if(!ready||!instance||manual||selected||importedSelection||view!=='map')return;
-    let pickPopup:maplibregl.Popup|null=null;
-    const pick=(event:maplibregl.MapMouseEvent)=>{
-      const target=event.originalEvent.target;
-      if(target instanceof Element&&target.closest('.maplibregl-marker,.maplibregl-popup,.maplibregl-control-container'))return;
+    let pickPopup:NativePopup|null=null;
+    const pick=(event:MapClick)=>{
       clearPreview();pickPopup?.remove();
       const longitude=((event.lngLat.lng+180)%360+360)%360-180;
-      const features=instance.queryRenderedFeatures([[event.point.x-12,event.point.y-12],[event.point.x+12,event.point.y+12]]);
-      const hint=mapPickHint(features,[longitude,event.lngLat.lat]);
+      const hint=mapPickHint([],[longitude,event.lngLat.lat]);
       const content=document.createElement('div');content.className='map-pick';
       const title=document.createElement('strong');title.textContent=hint.title;content.append(title);
       const explanation=document.createElement('p');
       explanation.textContent='Добавь личную точку и сохрани впечатления об этом месте.';content.append(explanation);
       const custom=document.createElement('button');custom.type='button';custom.textContent='Добавить личную точку';
       custom.onclick=()=>{pickPopup?.remove();addPoint();setName(hint.named?hint.title:'');instance.jumpTo({center:hint.position,padding:{top:0,bottom:0,left:0,right:0}});};content.append(custom);
-      pickPopup=new maplibregl.Popup({maxWidth:'280px',closeOnClick:false}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
+      pickPopup=new NativePopup({maxWidth:'280px',closeOnClick:false}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
     };
     instance.on('click',pick);
     return()=>{instance.off('click',pick);pickPopup?.remove();};
@@ -334,21 +303,19 @@ export function MapScreen() {
       {manual && <section className="selection manual-selection"><p>Перемести карту так, чтобы пин оказался над нужным местом.</p><label htmlFor="custom-name">Название места</label><input autoFocus id="custom-name" value={name} onChange={event => setName(event.target.value)} maxLength={200} placeholder="Например, любимая кофейня"/><div className="manual-actions"><button disabled={!ready || !!mapError || !name.trim()} onClick={() => { const center = map.current?.getCenter(); if (center) choose({ title: name.trim(), address: 'Ручная точка', origin: 'custom', longitude: center.lng, latitude: center.lat }); }}>Выбрать точку</button><button className="secondary" onClick={() => setManual(false)}>Отмена</button></div></section>}
       {importedSelection&&<ImportedPlacePanel selection={importedSelection} onClose={()=>setImportedSelection(null)} onCreate={note=>choose({title:note.place.title,longitude:note.place.longitude,latitude:note.place.latitude,origin:'custom',address:'Моя точка'})}/>}
       <div hidden={!!importedSelection || manual || (!detail && view === 'map')}><NotesPanel selected={selected} active={activeNote} onNotes={setNotes} onOpen={openNote} bounds={bounds} view={view} presetCategory={presetCategory} onImports={setImportedLayers} onImportedOpen={openImported} onImportedMap={showImportedMap} initialImportId={initialImportId} onListModeChange={setListMode}/></div>
-      {!key && <p className="notice">Для карты нужен ключ Geoapify. Добавь VITE_GEOAPIFY_API_KEY в apps/web/.env.local и перезапусти приложение.</p>}
+      {!key && <p className="notice">Поиск по названию недоступен без ключа Geoapify. Можно добавить точку вручную.</p>}
       {view === 'profile' && <footer>Заметки, оценки и фотографии доступны только владельцу.</footer>}
       </div>
     </aside>
     <section className="map-area" aria-label="Карта мест"><div ref={container} className="map-canvas" />
-      <div className="main-yandex-brand"><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer"><img src={`${import.meta.env.BASE_URL}maps/yandex-logo-ru.svg`} alt="Яндекс Карты"/></a><a href="https://yandex.ru/maps/" target="_blank" rel="noopener noreferrer">Открыть в Картах</a></div>
       {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
       <div className="map-tools" aria-label="Действия на карте">
         <button className="round-button" aria-label={locating?'Определяем геопозицию':tracking?'Выключить геопозицию':'Где я?'} aria-pressed={tracking} aria-busy={locating} aria-describedby={gpsError?'location-error':undefined} onClick={locate}>{locating ? <span className="spinner" aria-hidden="true"/> : <Icon name="location"/>}</button>
         {gpsError&&<div id="location-error" className="location-toast" role="alert">{gpsError}</div>}
       </div>
       {manual && ready && !mapError && <div className="center-pin" aria-hidden="true"><Icon name="pin"/></div>}
-      {!ready && !mapError && mapKey && <div className="map-message" role="status">{recovering?'Восстанавливаем карту…':'Загружаем карту…'}</div>}
+      {!ready && !mapError && mapKey && <div className="map-message" role="status">Загружаем карту…</div>}
       {mapError && <div className="map-message error" role="alert"><p>{mapError}</p><button onClick={() => { setSelected(null); setManual(false); setRetry(value => value + 1); }}>Повторить</button></div>}
-      {!key && <div className="map-message"><h2>Карта готова к подключению</h2><p>Укажи бесплатный ключ Geoapify для загрузки настоящей карты.</p></div>}
     </section>
     <nav className="bottom-nav" aria-label="Основная навигация"><button aria-current={view === 'map' && !detail ? 'page' : undefined} onClick={() => showView('map')}><Icon name="pin"/>Карта</button><button aria-current={view === 'list' && !detail ? 'page' : undefined} onClick={() => showView('list')}><Icon name="list"/>Места</button><button className="add-button" aria-label="Добавить место" onClick={addPoint} disabled={!ready || !!mapError}><Icon name="plus"/></button><button aria-current={view === 'collections' && !detail ? 'page' : undefined} onClick={() => showView('collections')}><Icon name="bookmark"/>Коллекции</button><button aria-current={view === 'profile' && !detail ? 'page' : undefined} onClick={() => showView('profile')}><Icon name="user"/>Профиль</button></nav>
   </div>;

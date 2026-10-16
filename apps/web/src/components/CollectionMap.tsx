@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
+import * as maplibregl from '../features/map/maplibre-runtime';
 import { markerIcon } from './Icon';
 import { getMapRenderPreferences, mobileMapStyle, MAP_STYLE } from '../features/map/startup';
 

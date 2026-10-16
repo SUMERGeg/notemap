@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
+import * as maplibregl from './maplibre-runtime';
 import './comparison.css';
 import { mobileMapStyle } from './startup';
 import { yandexMapStyle } from './yandex-style';

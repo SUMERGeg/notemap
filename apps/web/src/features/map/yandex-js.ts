@@ -1,17 +1,28 @@
-type Entity = object;
+export type Entity = { update?: (props: object) => void };
+export type NativeLocation = { center: [number, number]; zoom: number };
+export type NativeLocationRequest = { center?: [number, number]; zoom?: number; bounds?: [[number, number], [number, number]]; duration?: number };
+export type NativeListeners = {
+  onUpdate?: (event: { location: NativeLocation; camera: { azimuth: number }; mapInAction?: boolean }) => void;
+  onStateChanged?: (state: NativeState) => void;
+  onClick?: (object: { type: string } | undefined, event: { coordinates: [number, number] }) => void;
+};
 export type NativeMap = {
   addChild(child: Entity): NativeMap;
+  removeChild(child: Entity): NativeMap;
+  readonly center: [number, number];
+  readonly zoom: number;
+  readonly bounds: [[number, number], [number, number]];
   destroy(): void;
-  update(props: { location?: { zoom: number }; camera?: { azimuth: number } }): void;
+  update(props: { location?: NativeLocationRequest; camera?: { azimuth: number }; margin?: [number,number,number,number] }): void;
 };
-export type NativeLocation = { center: [number, number]; zoom: number };
 type NativeState = { getLayerState(id: string, type: 'tile'): { tilesReady: number } | undefined };
 export type YandexSdk = {
   ready: Promise<void>;
-  YMap: new (host: HTMLElement, props: { location: NativeLocation; mode: 'vector'; camera: { azimuth: number; tilt: number }; behaviors: string[] }) => NativeMap;
+  YMap: new (host: HTMLElement, props: { location: NativeLocation; mode: 'vector'; camera: { azimuth: number; tilt: number }; behaviors: string[]; zoomRange?: { min: number; max: number }; copyrightsPosition?: string; distributionPosition?: string; theme?: 'light' }) => NativeMap;
   YMapDefaultSchemeLayer: { new (props: object): Entity; defaultProps: { source: string } };
   YMapDefaultFeaturesLayer: new (props: object) => Entity;
-  YMapListener: new (props: { onUpdate: (event: { location: NativeLocation; camera: { azimuth: number } }) => void; onStateChanged: (state: NativeState) => void }) => Entity;
+  YMapListener: new (props: NativeListeners) => Entity;
+  YMapMarker: new (props: { coordinates: [number, number]; zIndex?: number; blockBehaviors?: boolean }, element: HTMLElement) => Entity;
 };
 
 let pending: Promise<YandexSdk> | undefined;
