@@ -78,7 +78,7 @@ export function MapScreen() {
   const [listMode, setListMode] = useState<'all' | 'ranked' | 'items'>('ranked');
   const [activeNote, setActiveNote] = useState<PersonalNote | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [sheetCompact, setSheetCompact] = useState(false);
+  const [sheetCompact, setSheetCompact] = useState(true);
   const [sheetDragOffset,setSheetDragOffset] = useState<number|null>(null);
   const initialImportId = /^#import=([0-9a-f-]{36})$/i.exec(window.location.hash)?.[1]??null;
   const [view, setView] = useState<'map' | 'list' | 'profile' | 'collections'>(initialImportId?'collections':'map');
