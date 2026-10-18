@@ -1,0 +1,6 @@
+.cloud-preview{max-width:720px;margin:0 auto;padding:24px 20px 48px}
+.cloud-preview h1{margin:24px 0 12px}.cloud-preview-items>li{display:block;padding:16px 0;border-bottom:1px solid var(--line)}
+.shared-photos{display:flex;gap:8px;overflow-x:auto;padding:8px 0 12px;max-width:100%;scroll-snap-type:x proximity}
+.shared-photos img{width:180px;height:150px;flex:0 0 auto;object-fit:contain;border-radius:12px;background:#f3f5f8;scroll-snap-align:start}
+.cloud-link-result{padding:16px;border:1px solid var(--line);border-radius:18px;margin:16px 0;background:#f6f9ff}
+.cloud-link-result label{margin-top:0}.cloud-link-result input{font-size:13px}

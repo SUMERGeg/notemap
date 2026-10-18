@@ -1,6 +1,7 @@
 import type { SharedNote } from './share-api';
 import type { RefreshDiff } from './import-api';
 import { categoryTitle } from '../../components/PlaceVisuals';
+import { SharedPhotos } from './SharedPhotos';
 
 function fields(note:SharedNote):Record<string,string> {
   return {
@@ -32,7 +33,7 @@ export function RefreshDiffPanel({diff,busy,onConfirm,onCancel,kind='collection'
     <NoteList title="Добавятся" items={diff.added}/>
     {!!diff.changed.length&&<section className="refresh-group"><h4>Изменятся · {diff.changed.length}</h4>{diff.changed.map(({before,after})=>{
       const oldFields=fields(before),newFields=fields(after);
-      return <details key={after.origin_note_id}><summary>{after.place.title}</summary>{Object.keys(oldFields).filter(key=>oldFields[key]!==newFields[key]).map(key=><div className="refresh-change" key={key}><strong>{key}</strong><div><p><small>Было</small>{oldFields[key]}</p><p><small>Станет</small>{newFields[key]}</p></div></div>)}</details>;
+      return <details key={after.origin_note_id}><summary>{after.place.title}</summary>{Object.keys(oldFields).filter(key=>oldFields[key]!==newFields[key]).map(key=><div className="refresh-change" key={key}><strong>{key}</strong><div><p><small>Было</small>{oldFields[key]}</p><p><small>Станет</small>{newFields[key]}</p></div></div>)}{JSON.stringify(before.photos??[])!==JSON.stringify(after.photos??[])&&<div className="refresh-change"><strong>Фотографии</strong><div><section><p>Было: {before.photos?.length??0}</p><SharedPhotos photos={before.photos}/></section><section><p>Станет: {after.photos?.length??0}</p><SharedPhotos photos={after.photos}/></section></div></div>}</details>;
     })}</section>}
     <NoteList title="Уберутся из копии" items={diff.removed}/>
     {!diff.added.length&&!diff.changed.length&&!diff.removed.length&&<p className="muted">Состав мест не изменился. Будет сохранена новая версия снимка.</p>}

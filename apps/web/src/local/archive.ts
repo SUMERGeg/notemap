@@ -1,3 +1,4 @@
+import { validateSharedPhotos } from './shared-photos';
 import { createState, exportDatabase, replaceDatabase, type LocalPhoto, type LocalState } from './db';
 import { MAX_PHOTO_BYTES, sanitizePhoto } from './photos';
 
@@ -36,6 +37,7 @@ function place(row: any) {
   for (const field of ['address','source_key','provider_id','source_license','attribution']) requireValue(row[field] == null || text(row[field],2000));
 }
 function sharedNote(row: any) {
+  if (row?.photos !== undefined) validateSharedPhotos(row.photos);
   requireValue(object(row) && uuid(row.origin_note_id) && categories.includes(row.category)); place(row.place);
   requireValue(row.text == null || text(row.text,10000)); requireValue(row.rating == null || rating(row.rating));
   requireValue(row.visited_on == null || date(row.visited_on));

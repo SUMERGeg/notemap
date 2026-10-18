@@ -38,6 +38,8 @@ jobs:
       VITE_GEOAPIFY_API_KEY: ${{ vars.VITE_GEOAPIFY_API_KEY }}
       VITE_YANDEX_MAPS_API_KEY: ${{ vars.VITE_YANDEX_MAPS_API_KEY }}
       VITE_YANDEX_JS_API_KEY: ${{ vars.VITE_YANDEX_JS_API_KEY }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

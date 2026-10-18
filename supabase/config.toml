@@ -1,0 +1,4 @@
+[functions.share-snapshot]
+# Publishing validates the user's JWT with Auth; reading uses a random capability.
+# Cleanup accepts only the server's service-role credential.
+verify_jwt = false
