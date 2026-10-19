@@ -1,3 +1,5 @@
+import { api } from '../notes/api';
+import { inlinePlacePayload,createInlinePlaceEditor } from './inline-place';
 import { Select } from '../../components/Select';
 import { Icon, type IconName } from '../../components/Icon';
 import { NativeMapController, NativeMarker, NativePopup, selectionMarker, installNativeMarkers as installClusteredMarkers, type MapClick } from './yandex-map';
@@ -263,6 +265,7 @@ export function MapScreen() {
     const instance=map.current;
     if(!ready||!instance||manual||selected||importedSelection||view!=='map')return;
     let pickPopup:NativePopup|null=null;
+    let releaseEditor:(()=>void)|undefined;
     const pick=(event:MapClick)=>{
       clearPreview();pickPopup?.remove();
       const longitude=((event.lngLat.lng+180)%360+360)%360-180;
@@ -271,8 +274,24 @@ export function MapScreen() {
       const custom=document.createElement('button');custom.type='button';
       const plus=document.createElement('span');plus.className='map-pick-plus';plus.textContent='+';plus.setAttribute('aria-hidden','true');
       custom.append(plus,document.createTextNode('Добавить место'));
-      custom.onclick=()=>{pickPopup?.remove();addPoint();setName(hint.named?hint.title:'');instance.jumpTo({center:hint.position,padding:{top:0,bottom:0,left:0,right:0}});};content.append(custom);
-      pickPopup=new NativePopup({maxWidth:'224px',className:'compact-pick',closeOnClick:false}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
+      custom.onclick=()=>{
+        const shell=content.closest<HTMLElement>('.native-popup');if(!shell)return;
+        shell.classList.add('inline-pick');shell.style.width='280px';
+        let pending:{payload:string;key:string}|undefined;
+        let disposed=false;
+        const adjust=()=>{if(disposed)return;const viewport=window.visualViewport;const visible=viewport?.height??window.innerHeight;const keyboard=Math.max(0,window.innerHeight-visible-(viewport?.offsetTop??0));instance.jumpTo({center:hint.position,padding:{top:Math.min(content.offsetHeight+40,visible*.48),bottom:keyboard+90,left:0,right:0}});};
+        const editor=createInlinePlaceEditor(async title=>{
+          const payload=inlinePlacePayload(title,hint.position);const serialized=JSON.stringify(payload);
+          if(!pending||pending.payload!==serialized)pending={payload:serialized,key:crypto.randomUUID()};
+          const note:PersonalNote=await api('/notes','POST',payload,pending.key);
+          setNotes(values=>[...values.filter(value=>value.id!==note.id),note]);
+        },adjust);
+        releaseEditor=()=>{disposed=true;editor.dispose();window.visualViewport?.removeEventListener('resize',adjust);window.visualViewport?.removeEventListener('scroll',adjust);instance.setPadding({top:0,bottom:0,left:0,right:0});};
+        content.replaceChildren(editor.element);
+        window.visualViewport?.addEventListener('resize',adjust);window.visualViewport?.addEventListener('scroll',adjust);
+        editor.focus();
+      };content.append(custom);
+      pickPopup=new NativePopup({maxWidth:'224px',className:'compact-pick',closeOnClick:false,onClose:()=>{releaseEditor?.();releaseEditor=undefined;}}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
     };
     instance.on('click',pick);
     return()=>{instance.off('click',pick);pickPopup?.remove();};

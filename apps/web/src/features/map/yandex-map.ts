@@ -98,7 +98,7 @@ export function selectionMarker(){const element=document.createElement('span');e
 
 export class NativePopup {
   private marker?:NativeMarker;private position:Position=[0,0];private content?:HTMLElement;
-  constructor(private options:{closeButton?:boolean;className?:string;maxWidth?:string;offset?:number[];closeOnClick?:boolean;anchor?:string}={}){}
+  constructor(private options:{closeButton?:boolean;className?:string;maxWidth?:string;offset?:number[];closeOnClick?:boolean;anchor?:string;onClose?:()=>void}={}){}
   setLngLat(position:Position){this.position=position;return this;}
   setDOMContent(content:HTMLElement){this.content=content;return this;}
   addTo(map:NativeMapController){
@@ -108,7 +108,7 @@ export class NativePopup {
     if(this.content)shell.append(this.content);
     this.marker=new NativeMarker({element:shell}).setLngLat(this.position).addTo(map);return this;
   }
-  remove(){this.marker?.remove();this.marker=undefined;return this;}
+  remove(){const attached=!!this.marker;this.marker?.remove();this.marker=undefined;if(attached)this.options.onClose?.();return this;}
 }
 
 type Point={id:string;longitude:number;latitude:number};
