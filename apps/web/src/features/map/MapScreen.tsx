@@ -268,12 +268,11 @@ export function MapScreen() {
       const longitude=((event.lngLat.lng+180)%360+360)%360-180;
       const hint=mapPickHint([],[longitude,event.lngLat.lat]);
       const content=document.createElement('div');content.className='map-pick';
-      const title=document.createElement('strong');title.textContent=hint.title;content.append(title);
-      const explanation=document.createElement('p');
-      explanation.textContent='Добавь личную точку и сохрани впечатления об этом месте.';content.append(explanation);
-      const custom=document.createElement('button');custom.type='button';custom.textContent='Добавить личную точку';
+      const custom=document.createElement('button');custom.type='button';
+      const plus=document.createElement('span');plus.className='map-pick-plus';plus.textContent='+';plus.setAttribute('aria-hidden','true');
+      custom.append(plus,document.createTextNode('Добавить место'));
       custom.onclick=()=>{pickPopup?.remove();addPoint();setName(hint.named?hint.title:'');instance.jumpTo({center:hint.position,padding:{top:0,bottom:0,left:0,right:0}});};content.append(custom);
-      pickPopup=new NativePopup({maxWidth:'280px',closeOnClick:false}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
+      pickPopup=new NativePopup({maxWidth:'224px',className:'compact-pick',closeOnClick:false}).setLngLat(hint.position).setDOMContent(content).addTo(instance);
     };
     instance.on('click',pick);
     return()=>{instance.off('click',pick);pickPopup?.remove();};

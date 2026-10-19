@@ -13,3 +13,11 @@
 /* Undo the application's generic 44px button minimum, restoring SDK sizing. */
 .map-area .ymaps3--control-button{color:#172033;min-height:0}
 @media(max-width:340px){.map-area .ymaps3--controls_top.ymaps3--controls_left{left:14px;top:calc(136px + env(safe-area-inset-top))}}
+
+/* A single compact action instead of an information card for an empty map tap. */
+.native-popup.compact-pick{padding:6px 48px 6px 6px;border-radius:18px;box-shadow:0 6px 24px #17233924;margin-bottom:12px}
+.native-popup.compact-pick .map-pick{display:block;padding:0}
+.native-popup.compact-pick .map-pick button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:8px 6px;margin:0;background:transparent;color:#0068ff;border:0;border-radius:12px;font-size:14px;font-weight:550;white-space:nowrap}
+.native-popup.compact-pick .map-pick-plus{font-size:23px;line-height:1;font-weight:400}
+.native-popup.compact-pick .native-popup-close{top:6px;right:4px;width:40px;height:44px;min-height:44px;padding:0;background:transparent;color:#9aa5b5;font-size:23px;border-radius:12px}
+.native-popup.compact-pick .map-pick button:hover,.native-popup.compact-pick .native-popup-close:hover{background:#f2f6fc}
