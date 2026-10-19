@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { Icon, type IconName } from '../../components/Icon';
 import { NativeMapController, NativeMarker, NativePopup, selectionMarker, installNativeMarkers as installClusteredMarkers, type MapClick } from './yandex-map';
 import { loadYandexJs } from './yandex-js';
@@ -288,7 +289,7 @@ export function MapScreen() {
         <button type="submit" aria-label="Найти" disabled={!key || query.trim().length < 2 || loading}>{loading ? <span className="spinner"/> : <Icon name="arrow"/>}</button>
       </form>
       <button ref={searchSettings} className="round-button" aria-label="Настройки поиска" aria-expanded={searchOptions} aria-controls="search-options" onClick={() => setSearchOptions(value => !value)}><Icon name="sliders"/></button>
-      {searchOptions && <div id="search-options" className="search-options"><label htmlFor="search-mode">Что ищем</label><select autoFocus id="search-mode" value={mode} onChange={event => { invalidateSearch(); setMode(event.target.value as SearchMode); }}><option value="организация">Организации</option><option value="адрес">Адрес или город в России</option></select></div>}
+      {searchOptions && <div id="search-options" className="search-options"><label htmlFor="search-mode">Что ищем</label><Select autoFocus id="search-mode" label="Что ищем" value={mode} onChange={value=>{invalidateSearch();setMode(value as SearchMode);}} options={[{value:"организация",label:"Организации"},{value:"адрес",label:"Адрес или город в России"}]}/></div>}
     </div>
     {homeSheet && <button className="panel-toggle" aria-controls="map-panel-content" aria-expanded={!sheetCompact} onClick={() => { setPanelOpen(true); setSheetCompact(value => !value); }}>Мои места <Icon name="chevron"/></button>}
     <aside ref={panel} id="map-panel" className="sidebar" hidden={!panelOpen} inert={homeSheet&&sheetCompact} aria-label="Поиск и личные места">

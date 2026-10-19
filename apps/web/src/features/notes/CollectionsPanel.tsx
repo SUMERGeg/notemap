@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import type { PersonalNote } from './NotesPanel';
@@ -30,7 +31,7 @@ export function CollectionsPanel({noteId,selectedId,onSelect,notes=[],onOpen,onC
   const disabled=busy||loading||noteBusy;
   const inCollection=memberships.includes(choice);
   return <section className="collections-panel" aria-label={noteId?'Коллекции заметки':'Личные коллекции'}>
-    {noteId ? <><h3>Добавить в коллекцию</h3><label htmlFor="note-collection">Подборка</label><select id="note-collection" value={choice} onChange={e=>setChoice(e.target.value)} disabled={disabled}><option value="">Выбери коллекцию</option>{collections.map(row=><option key={row.id} value={row.id}>{row.name}{memberships.includes(row.id)?' · добавлено':''}</option>)}</select>
+    {noteId ? <><h3>Добавить в коллекцию</h3><label htmlFor="note-collection">Подборка</label><Select id="note-collection" label="Подборка" value={choice} onChange={setChoice} disabled={disabled} options={[{value:"",label:"Выбери коллекцию"},...collections.map(row=>({value:row.id,label:row.name+(memberships.includes(row.id)?" · добавлено":"")}))]}/>
       <button className="secondary" disabled={disabled||!choice} onClick={()=>void action(async()=>{await api(`/collections/${choice}/notes/${noteId}`,inCollection?'DELETE':'PUT');setMessage(inCollection?'Заметка исключена из коллекции':'Заметка добавлена в коллекцию');})}>{inCollection?'Убрать из коллекции':'Добавить в коллекцию'}</button>
       {!loading&&!collections.length&&<p className="muted">Создай подборку во вкладке «Коллекции».</p>}</> : <>
       <p className="muted">Личные подборки твоих заметок. Видны только тебе.</p>
