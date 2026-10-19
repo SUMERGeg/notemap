@@ -1,6 +1,7 @@
 import type { ShareOptions,SharePreview } from '../features/notes/share-api';
 import { exportDatabase,mutateState } from './db';
-import { buildSnapshot,encodeSnapshot,validateSnapshot } from './file-share';
+import { encodeSnapshot,validateSnapshot } from './file-share';
+import { buildCloudSnapshot } from './cloud-snapshot';
 import { CLOUD_SHARE_LIMIT,photoBytes,toBase64 } from './shared-photos';
 import { sanitizePhoto } from './photos';
 
@@ -35,9 +36,9 @@ async function boundedJson(response:Response){
  try{while(true){const {value,done}=await reader.read();if(done)break;total+=value.length;if(total>CLOUD_SHARE_LIMIT){await reader.cancel();throw new Error('Подборка больше 40 МБ.');}chunks.push(value);}}finally{reader.releaseLock();}
  const bytes=new Uint8Array(total);let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.length;}return JSON.parse(new TextDecoder().decode(bytes));
 }
-export async function publishCollection(origin:string,options:ShareOptions,includePhotos:boolean){
- if(!cloudSharingEnabled)throw new Error('Облачный обмен ещё не подключён. Можно передать файл подборки.');
- const contents=await exportDatabase();const snapshot=buildSnapshot(contents.state,origin,'collection',options);
+export async function publishCollection(origin:string,options:ShareOptions,includePhotos:boolean,kind:'note'|'collection'='collection'){
+ if(!cloudSharingEnabled)throw new Error('Обмен ссылками пока недоступен. Попробуй позже.');
+ const contents=await exportDatabase();const snapshot=buildCloudSnapshot(contents.state,origin,kind,options);
  if(includePhotos){
    const photos=contents.photos.filter(photo=>snapshot.items.some(note=>note.origin_note_id===photo.note_id));
    if(photos.reduce((sum,photo)=>sum+Math.ceil(photo.blob.size/3)*4,0)>CLOUD_SHARE_LIMIT)throw new Error('Коллекция с фото превышает 40 МБ. Раздели её на несколько подборок.');

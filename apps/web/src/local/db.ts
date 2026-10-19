@@ -37,7 +37,7 @@ function storageError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Не удалось открыть локальное хранилище.');
 }
 
-type DatabaseContents = { state: LocalState; photos: LocalPhoto[] };
+export type DatabaseContents = { state: LocalState; photos: LocalPhoto[] };
 async function transaction<T>(write: boolean, work: (contents: DatabaseContents) => T): Promise<T> {
   const db = await database();
   return new Promise<T>((resolve, reject) => {
@@ -85,6 +85,7 @@ export function cascadeNotes(state: LocalState): void {
 // Read through a write transaction to persist the generated profile on first use.
 export function readState(): Promise<LocalState> { return transaction(true, contents => structuredClone(contents.state)); }
 export function mutateState<T>(work: (state: LocalState) => T): Promise<T> { return transaction(true, contents => work(contents.state)); }
+export function mutateDatabase<T>(work: (contents: DatabaseContents) => T): Promise<T> { return transaction(true, work); }
 export function getPhoto(id: string): Promise<LocalPhoto | undefined> { return transaction(false, contents => contents.photos.find(row => row.id === id)); }
 export function listPhotos(noteId?: string): Promise<LocalPhoto[]> { return transaction(false, contents => contents.photos.filter(row => !noteId || row.note_id === noteId)); }
 export function putPhoto(row: LocalPhoto): Promise<void> {

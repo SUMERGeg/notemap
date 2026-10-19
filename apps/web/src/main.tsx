@@ -1,6 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import './target-interface.css';
+import './experience.css';
+import './spacing.css';
+import './features/notes/sharing-native.css';
 import { MapScreen } from './features/map/MapScreen';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { SharePreviewPage } from './features/notes/SharePanel';

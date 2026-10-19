@@ -5,7 +5,8 @@ import { ConfirmAction } from '../../components/ConfirmAction';
 import { categoryTitle, MiniMap, MapCredit } from '../../components/PlaceVisuals';
 import { importsApi, loadImportedLayers, type ImportedLayer, type ImportedSelection } from './import-api';
 import type { SharedNote } from './share-api';
-import { FileImportPanel } from './FileImportPanel';
+import { LinkImportPanel } from './LinkImportPanel';
+import { ToggleRow } from '../../components/ToggleRow';
 import { SharedPhotos } from './SharedPhotos';
 import './cloud-share.css';
 
@@ -22,18 +23,18 @@ export function ImportedCollectionsPanel({hidden,onLayers,onOpen,onMap,initialId
   const current=layers.find(layer=>layer.id===selected);
   function open(layer:ImportedLayer){setSelected(layer.id);}
   return <section className="imported-collections" hidden={hidden} aria-label="Импортированные коллекции">
-    <div className="imported-section-heading"><Icon name="layers"/><h2>Импортированные</h2></div><p className="muted">Независимые копии подборок. Оценки автора отделены от твоих рейтингов.</p><FileImportPanel onChange={reload}/>
+    <div className="imported-section-heading"><h2>Полученные</h2><span className="collection-count">{layers.length||''}</span></div>{!current&&<LinkImportPanel/>}
     {loading&&<p role="status">Загружаем импортированные коллекции…</p>}
     {error&&<><p className="notice error" role="alert">{error}</p><button className="secondary" disabled={busy} onClick={()=>void action(reload)}>Повторить загрузку</button></>}
     {selected&&!current&&!loading&&!error&&<p className="notice">Коллекция недоступна на этом устройстве.</p>}
-    {selected&&<button className="secondary" disabled={busy} onClick={()=>setSelected(null)}><Icon name="chevron" className="back-icon"/>Все импортированные</button>}
-    {current?<><h3>{current.name}</h3><p className="muted">{current.author_name} · Версия {current.snapshot_version} · {current.note_count} мест</p>{current.description&&<p>{current.description}</p>}<p className="muted">Для обновления открой новую ссылку или файл автора и подтверди изменения. Личные заметки сохранятся.</p>
-      <label className="import-layer-toggle"><input type="checkbox" checked={current.visible} disabled={busy} onChange={event=>{const visible=event.target.checked;void action(async()=>{await importsApi(`/imports/${current.id}`,'PATCH',{visible});await reload();});}}/><span>Показывать слой на карте</span></label>
+    {selected&&<button className="secondary" disabled={busy} onClick={()=>setSelected(null)}><Icon name="chevron" className="back-icon"/>Все полученные</button>}
+    {current?<><h3>{current.name}</h3><p className="muted">{current.author_name} · Версия {current.snapshot_version} · {current.note_count} мест</p>{current.description&&<p>{current.description}</p>}<p className="muted">Личная копия · обновление по новой ссылке</p>
+      <div className="toggle-group"><ToggleRow title="Показывать на карте" icon="map" checked={current.visible} disabled={busy} onChange={visible=>void action(async()=>{await importsApi(`/imports/${current.id}`,'PATCH',{visible});await reload();})}/></div>
       <button className="secondary" disabled={busy||!current.visible||!current.items.length} onClick={()=>onMap(current)}><Icon name="map"/>Посмотреть на карте</button>
       <ul className="results">{current.items.map(note=><li key={note.origin_note_id}><button className="result imported-place-row" disabled={busy} onClick={()=>onOpen({layer:current,note})}><MiniMap longitude={note.place.longitude} latitude={note.place.latitude}/><span><strong>{note.place.title}</strong><small>{categoryTitle(note.category)}{note.rating!=null?` · Оценка автора ${note.rating}/10`:''}</small></span><Icon name="chevron"/></button></li>)}</ul>
       {!current.note_count&&<EmptyState icon="pin" title="Пустая коллекция" description="В сохранённой версии ещё нет мест."/>}
       <ConfirmAction label="Удалить импорт" title="Удалить импортированную коллекцию?" description="Удалится только эта копия. Твои заметки, фотографии и оценки сохранятся." disabled={busy} onConfirm={()=>void action(async()=>{await importsApi(`/imports/${current.id}`,'DELETE');setSelected(null);await reload();})}/>
-    </>:!selected&&<><ul className="results">{layers.map(layer=><li key={layer.id} className="import-layer-card"><button className="result collection-card" disabled={busy} onClick={()=>void open(layer)}><span className="collection-card-icon imported-layer-icon"><Icon name="layers"/></span><span><strong>{layer.name}</strong><small>{layer.author_name} · {layer.note_count} мест</small><small>Версия {layer.snapshot_version} · {layer.visible?'Слой виден':'Слой скрыт'}</small></span><Icon name="chevron"/></button></li>)}</ul>{!loading&&!error&&!layers.length&&<EmptyState icon="layers" title="Коллекции друзей появятся здесь" description="Открой ссылку или файл подборки и подтверди импорт."/>}</>}
+    </>:!selected&&<><ul className="results">{layers.map(layer=><li key={layer.id} className="import-layer-card"><button className="result collection-card" disabled={busy} onClick={()=>void open(layer)}><span className="collection-card-icon imported-layer-icon"><Icon name="layers"/></span><span><strong>{layer.name}</strong><small>{layer.author_name} · {layer.note_count} мест</small><small>{layer.visible?'На карте':'Скрыта с карты'}</small></span><Icon name="chevron"/></button></li>)}</ul>{!loading&&!error&&!layers.length&&<EmptyState icon="layers" title="Места, которыми поделились" description="Сохрани коллекцию по ссылке."/>}</>}
   </section>;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PhotoViewer } from '../../components/PhotoViewer';
 import { ConfirmAction } from '../../components/ConfirmAction';
 import { Icon } from '../../components/Icon';
 import { deletePhoto, listPhotos, type LocalPhoto } from '../../local/db';
@@ -6,6 +7,7 @@ import { getDirectPhoto, MAX_PHOTO_BYTES, savePhoto } from '../../local/photos';
 
 type Pending = {file: File; id: string};
 export function PhotoPanel({ noteId, noteBusy, onChange }: {noteId: string; noteBusy: boolean; onChange?: () => void}) {
+  const [viewing,setViewing]=useState<number|null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [photos,setPhotos] = useState<LocalPhoto[]>([]);
   const [urls,setUrls] = useState<Record<string,string>>({});
@@ -62,9 +64,10 @@ export function PhotoPanel({ noteId, noteBusy, onChange }: {noteId: string; note
     {!!pending.length && <><p>Выбрано: {pending.map(item => item.file.name).join(', ')}</p><button disabled={busy || noteBusy} onClick={() => void action(upload)}>Сохранить фото</button><button className="secondary" disabled={busy || noteBusy} onClick={() => setPending([])}>Отменить выбор</button></>}
     {loading && <p role="status">Открываем фотографии…</p>}
     <div className="photo-grid">{photos.map((photo,index) => <figure key={photo.id}>
-      <a href={urls[photo.id]} target="_blank" rel="noopener noreferrer"><img src={urls[photo.id]} alt={`Фото ${index + 1} к заметке`} onError={() => setError('Фото не открылось. Обнови галерею.')}/></a>
+      <button type="button" className="photo-open" aria-label={`Открыть фото ${index+1}`} onClick={()=>setViewing(index)}><img src={urls[photo.id]} alt={`Фото ${index + 1} к заметке`} onError={() => setError('Фото не открылось. Обнови галерею.')}/></button>
       <ConfirmAction label={`Удалить фото ${index + 1}`} title="Удалить фотографию?" description="Фотография исчезнет из заметки. Это действие нельзя отменить." disabled={busy || noteBusy} onConfirm={() => void action(async token => { await deletePhoto(photo.id); await load(token); if (token === generation.current) onChange?.(); })}/>
     </figure>)}<button type="button" className="photo-add-tile" aria-label="Выбрать фотографии" disabled={busy || noteBusy || loading || pending.length > 0 || photos.length >= 10} onClick={() => fileInput.current?.click()}><Icon name="plus"/></button></div>
+    {viewing!==null&&urls[photos[viewing]?.id]&&<PhotoViewer sources={photos.map(photo=>urls[photo.id])} index={viewing} onIndex={setViewing} onClose={()=>setViewing(null)}/>}
     <p className="photo-caption">{photos.length}/10 · JPEG, PNG, WebP · до 10 МБ · хранятся на этом устройстве</p>
     <div aria-live="polite">{busy && <p role="status">{status || 'Обрабатываем…'}</p>}{error && <p className="notice error" role="alert">{error}</p>}</div>
   </section>;
