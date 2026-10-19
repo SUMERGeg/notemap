@@ -41,10 +41,10 @@ export function SharePreviewPage({token}:{token:string}){
   return()=>abort.abort();
  },[token,retry]);
  async function accept(){if(!preview)return;setBusy(true);setError('');try{const result=await acceptSnapshot(preview,current?.snapshot_version);setSaved(result.id);setPreview(null);setDiff(null);}catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить копию.');}finally{setBusy(false);}}
- return <main className="share-preview-page cloud-preview"><a href={import.meta.env.BASE_URL}>← На мою карту</a><h1>Сохранить подборку</h1>{loading&&<p role="status">Загружаем коллекцию и фотографии…</p>}{error&&<><p className="notice error" role="alert">{error}</p><button disabled={loading||busy} onClick={()=>setRetry(n=>n+1)}>Повторить</button></>}
- {preview&&<><CollectionPreview preview={preview}/><details className="quiet-details"><summary>Автор и срок доступа</summary><p className="muted">Имя автора не подтверждено. Ссылка доступна до {new Date(preview.expires_at).toLocaleString('ru-RU')}. Версия {preview.version}.</p></details>
- {diff?<RefreshDiffPanel diff={diff} busy={busy} onConfirm={()=>void accept()} onCancel={()=>{setDiff(null);setPreview(null);}}/>:<div className="import-primary-action"><button disabled={busy} onClick={()=>void accept()}>{busy?'Сохраняем…':'Сохранить на мою карту'}</button><p>Места и включённые фото останутся на устройстве.</p></div>}</>}
-
- {saved&&<><p role="status">Копия с фотографиями сохранена на этом устройстве.</p><a className="primary-link" href={`${import.meta.env.BASE_URL}#import=${saved}`}>Открыть коллекцию на карте</a></>}
- </main>;
+ return <main className="share-preview-page cloud-preview invite-page"><header className="invite-toolbar"><a className="soft-circle" href={import.meta.env.BASE_URL} aria-label="На мою карту"><Icon name="chevron" className="back-icon"/></a><span>Notemap</span><span className="invite-toolbar-spacer"/></header><div className="invite-content">
+ {loading&&<div className="invite-status" role="status"><span className="spinner"/><h1>Открываем подборку</h1></div>}
+ {error&&<div className="invite-error" role="alert"><Icon name="layers"/><h1>Не удалось открыть подборку</h1><p>{error}</p><button disabled={loading||busy} onClick={()=>setRetry(value=>value+1)}>Попробовать ещё раз</button></div>}
+ {preview&&<><CollectionPreview preview={preview}/><details className="invite-access"><summary>О подборке</summary><p>Автор: {preview.author_name} · имя не подтверждено.</p><p>Ссылка до {new Date(preview.expires_at).toLocaleDateString('ru-RU')}. Обновление копии — только по новой ссылке с твоим подтверждением.</p></details>{diff&&<RefreshDiffPanel diff={diff} busy={busy} onConfirm={()=>void accept()} onCancel={()=>window.location.assign(import.meta.env.BASE_URL)}/>}</>}
+ {saved&&<div className="invite-saved"><span><Icon name="check"/></span><h1>Коллекция сохранена</h1><p>Места и фото теперь на твоём устройстве.</p></div>}
+ </div>{preview&&!diff&&<footer className="invite-footer"><button disabled={busy||!preview.items.length} onClick={()=>void accept()}>{busy?<><span className="spinner"/>Сохраняем…</>:'Сохранить подборку'}</button></footer>}{saved&&<footer className="invite-footer"><a className="primary-link" href={`${import.meta.env.BASE_URL}#import=${saved}`}>Открыть на карте</a></footer>}</main>;
 }

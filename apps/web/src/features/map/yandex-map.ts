@@ -16,13 +16,13 @@ export class NativeMapController {
   private disposed=false;
   private timer:ReturnType<typeof setTimeout>;
   private lastZoom:number;
-  constructor(readonly sdk:YandexSdk,private host:HTMLElement,viewport:Viewport,callbacks:{ready:()=>void;failed:()=>void}){
+  constructor(readonly sdk:YandexSdk,private host:HTMLElement,viewport:Viewport,callbacks:{ready:()=>void;failed:()=>void;preview?:boolean}){
     this.lastZoom=viewport.zoom;
     this.native=new sdk.YMap(host,{
       location:{center:[viewport.longitude,viewport.latitude],zoom:clampZoom(viewport.zoom)},
       mode:'vector',theme:'light',camera:{azimuth:0,tilt:0},zoomRange:{min:2,max:19},
-      behaviors:['drag','scrollZoom','pinchZoom','dblClick','pinchRotate','mouseRotate'],
-      copyrightsPosition:'top left',distributionPosition:'top left',
+      behaviors:callbacks.preview?[]:['drag','scrollZoom','pinchZoom','dblClick','pinchRotate','mouseRotate'],
+      copyrightsPosition:callbacks.preview?'bottom left':'top left',distributionPosition:callbacks.preview?'bottom right':'top left',
     });
     this.timer=setTimeout(()=>{if(!this.disposed)callbacks.failed();},20000);
     let loaded=false;
