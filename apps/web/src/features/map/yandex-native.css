@@ -21,3 +21,6 @@
 .native-popup.compact-pick .map-pick-plus{font-size:23px;line-height:1;font-weight:400}
 .native-popup.compact-pick .native-popup-close{top:6px;right:4px;width:40px;height:44px;min-height:44px;padding:0;background:transparent;color:#9aa5b5;font-size:23px;border-radius:12px}
 .native-popup.compact-pick .map-pick button:hover,.native-popup.compact-pick .native-popup-close:hover{background:#f2f6fc}
+/* The SDK marker is the clicked coordinate: place the triangle tip exactly there. */
+.native-marker>.native-popup.compact-pick{transform:translate(-50%,calc(-100% - 10px));margin-bottom:0}
+.native-popup.compact-pick::after{content:'';position:absolute;left:50%;top:100%;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:10px solid #fff;transform:translateX(-50%);filter:drop-shadow(0 3px 2px #17233914);pointer-events:none}
