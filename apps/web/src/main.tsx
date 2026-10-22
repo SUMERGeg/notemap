@@ -6,6 +6,7 @@ import './spacing.css';
 import './features/notes/sharing-native.css';
 import './components/select.css';
 import './features/notes/collection-invite.css';
+import './features/map/search-results.css';
 import { MapScreen } from './features/map/MapScreen';
 import { useEffect, useState } from 'react';
 import { SharePreviewPage } from './features/notes/SharePanel';

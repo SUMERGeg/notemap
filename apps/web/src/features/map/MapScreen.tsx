@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { DEFAULT_VIEWPORT, readViewport, VIEWPORT_KEY, type Viewport } from './viewport';
-import { searchPlaces, type PlaceCandidate, type SearchMode } from '../places/geoapify';
+import { distanceFrom,searchPlaces, type PlaceCandidate, type SearchMode } from '../places/geoapify';
 import { NotesPanel, type PersonalNote } from '../notes/NotesPanel';
 import { categoryData, MiniMap, placesCount } from '../../components/PlaceVisuals';
 import type { ImportedLayer, ImportedSelection } from '../notes/import-api';
@@ -46,6 +46,8 @@ export function MapScreen() {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('организация');
   const [results, setResults] = useState<PlaceCandidate[]>([]);
+  const [resultQuery,setResultQuery]=useState('');
+  const [searchRadius,setSearchRadius]=useState(10000);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -222,8 +224,23 @@ export function MapScreen() {
     popup.current=new NativePopup({closeButton:false,closeOnClick:false,anchor:'bottom',offset:[0,-48],maxWidth:'280px',className:'result-popup'}).setLngLat([place.longitude,place.latitude]).setDOMContent(host).addTo(map.current);
     setPopupElement(host);
   }
+  useEffect(()=>{
+    const instance=map.current;if(!ready||!instance||view!=='map'||selected||importedSelection)return;
+    const markers=results.map((place,index)=>{
+      const button=document.createElement('button');button.type='button';button.className=`search-result-marker${previewPlace===place?' is-active':''}`;button.textContent=String(index+1);button.setAttribute('aria-label',`${index+1}. ${place.title}`);button.setAttribute('aria-pressed',String(previewPlace===place));
+      button.onclick=()=>{previewResult(place);document.getElementById(`search-result-${index}`)?.scrollIntoView({block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});};
+      return new NativeMarker({element:button,anchor:'center'}).setLngLat([place.longitude,place.latitude]).addTo(instance);
+    });
+    return()=>markers.forEach(item=>item.remove());
+  },[results,previewPlace,ready,retry,view,selected,importedSelection]);
+  useEffect(()=>{
+    const instance=map.current;if(!ready||!instance||!results.length||view!=='map'||selected||importedSelection)return;
+    const mobile=window.matchMedia('(max-width:700px)').matches;const host=instance.getContainer();
+    instance.fitBounds(results.map(place=>[place.longitude,place.latitude]),{maxZoom:15,duration:window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:300,padding:{top:110,bottom:mobile?Math.min((panel.current?.clientHeight??0)+24,host.clientHeight*.6):60,left:mobile?40:Math.min(450,host.clientWidth*.55),right:40}});
+  },[results,ready,retry]);
+  function editQuery(value:string){controller.current?.abort();requestNumber.current++;setLoading(false);setSearchError('');setSearched(false);clearPreview();setQuery(value);}
   function invalidateSearch() {
-    controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false);  setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
+    controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false); setResultQuery(''); setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
   }
   function closeSearchPanel() {
     invalidateSearch(); setManual(false); setPanelOpen(true); setSheetCompact(true);
@@ -232,15 +249,18 @@ export function MapScreen() {
     
     setPanelOpen(true); setView('map');
     setSheetCompact(false); openNote(null); setManual(false);
-    event.preventDefault(); controller.current?.abort();
+    event.preventDefault();if(query.trim().length<2)return;searchInput.current?.blur();setSearchOptions(false);clearPreview();controller.current?.abort();
     const id = ++requestNumber.current;
     const abort = new AbortController(); controller.current = abort;
-    setLoading(true); setSearchError(''); setResults([]); setSearched(false);
+    setLoading(true); setSearchError(''); setSearched(false);
     const center = map.current?.getCenter();
+    const region=map.current?.getBounds();const position:[number,number]=center?[center.lng,center.lat]:[37.6173,55.7558];
+    const radius=region?Math.max(1000,Math.min(50000,Math.round(distanceFrom(position,[region.getEast(),region.getNorth()])/1000)*1000)):10000;
+    const submittedQuery=query.trim();
     const timeout = window.setTimeout(() => abort.abort(), 10000);
     try {
-      const found = await searchPlaces(mode, query, key, center ? [center.lng, center.lat] : [37.6173, 55.7558], abort.signal);
-      if (id === requestNumber.current && alive.current) { setResults(found); setSearched(true); }
+      const found = await searchPlaces(mode,submittedQuery,key,position,abort.signal,fetch,radius);
+      if (id === requestNumber.current && alive.current) {setResults(found);setResultQuery(submittedQuery);setSearchRadius(radius);setSearched(true);}
     } catch (error) {
       if (id === requestNumber.current && alive.current) setSearchError(abort.signal.aborted ? 'Поиск занял слишком много времени. Попробуй ещё раз или выбери точку вручную.'
         : error instanceof Error && error.name !== 'TypeError' ? error.message : 'Нет связи с поиском. Можно выбрать точку вручную.');
@@ -302,7 +322,7 @@ export function MapScreen() {
       <form className="map-search" onSubmit={search}>
         <Icon name="search" className="search-icon"/>
         <label className="sr-only" htmlFor="place-query">Название или адрес</label>
-        <input ref={searchInput} id="place-query" value={query} onChange={event => { invalidateSearch(); setQuery(event.target.value); }} maxLength={200} placeholder="Поиск мест" />
+        <input ref={searchInput} id="place-query" value={query} onChange={event=>editQuery(event.target.value)} maxLength={200} placeholder="Поиск мест" />
         {query&&<button type="button" className="search-clear" aria-label="Очистить поиск" onClick={()=>{invalidateSearch();setQuery('');searchInput.current?.focus();}}><Icon name="close"/></button>}
         <button type="submit" aria-label="Найти" disabled={!key || query.trim().length < 2 || loading}>{loading ? <span className="spinner"/> : <Icon name="arrow"/>}</button>
       </form>
@@ -316,8 +336,8 @@ export function MapScreen() {
       {!selected&&view!=='map'&&!manual&&<div className="screen-toolbar"><button className="soft-circle" aria-label="Вернуться на карту" onClick={()=>showView('map')}><Icon name="chevron" className="back-icon"/></button><strong>Notemap</strong><button className="soft-circle" aria-label="Профиль и настройки" onClick={()=>showView('profile')}><Icon name="more"/></button></div>}
       {!selected&&!importedSelection&&<header className="sheet-header"><div><h1>{manual ? 'Добавить место' : results.length ? 'Результаты поиска' : view === 'list' ? (listMode === 'all' ? 'Все заметки' : listMode === 'items' ? 'Лучшие предметы' : 'Лучшие места') : view === 'profile' ? 'Профиль' : view === 'collections' ? 'Коллекции' : 'Notemap'}</h1>{!detail && !results.length && <p>{view === 'list' ? (listMode === 'all' ? 'Все твои сохранённые места' : listMode === 'items' ? 'Сравнивай предметы в разных местах' : 'На основе твоих оценок и заметок') : view === 'profile' ? 'Твои личные места и заметки' : view === 'collections' ? 'Подборки любимых мест' : 'Твоя карта любимых мест'}</p>}</div>{(manual||results.length>0)&&<button className="sheet-close" aria-label="Свернуть панель" onClick={closeSearchPanel}><Icon name="close"/></button>}</header>}
       {!detail && view === 'map' && !results.length && <div className="category-cards">{categoryData.map(({id,icon,title}) => <button key={id} className={`category-card ${id}`} onClick={() => showView('list',id)}><span className="category-icon"><Icon name={icon as IconName}/></span><strong>{title}</strong><small>{placesCount(notes.filter(note=>note.category===id).length)}</small></button>)}</div>}
-      <div aria-live="polite">{loading&&<p role="status">Ищем место…</p>}{searchError && <p className="notice error" role="alert">{searchError}</p>}{searched && results.length === 0 && <p className="notice">Ничего не найдено. Попробуй другое название или добавь свою точку через «+».</p>}</div>
-      {results.length > 0 && <><div className="nearby-caption"><Icon name="pin"/>Результаты поиска · {results.length}</div><ul className="nearby-places">{results.map((place, index) => { const savedNote = place.providerId ? notes.find(note => note.place.provider_id === place.providerId) : undefined; return <li className="nearby-entry" key={`${place.providerId ?? place.title}-${index}`}><button className="nearby-row" aria-pressed={previewPlace===place} onClick={() => previewResult(place)}><MiniMap longitude={place.longitude} latitude={place.latitude}/><span className="row-copy"><strong>{place.title}</strong><span>{place.address}</span><small>{savedNote && 'Уже сохранено · '}{place.distanceM!==undefined?`${place.distanceM} м по прямой`:mode==='организация'?'Организация':'Адрес на карте'}</small></span></button><button className={previewPlace===place?'nearby-save':'row-add'} aria-label={`${savedNote ? "Открыть" : "Добавить"} заметку: ${place.title}`} title={savedNote ? "Открыть сохранённую заметку" : "Добавить заметку"} onClick={()=>savedNote ? openNote(savedNote) : choose({...place,startEditing:true})}>{previewPlace===place?<><Icon name="bookmark"/>{savedNote ? "Открыть" : "Сохранить"}</>:<Icon name={savedNote ? "bookmark" : "plus"}/>}</button></li>;})}</ul><div className="nearby-credit"><a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></>}
+      <div aria-live="polite">{loading&&<p className="search-progress" role="status"><span className="spinner"/>Ищем…</p>}{searchError && <p className="notice error" role="alert">{searchError}</p>}{searched && results.length === 0 && <p className="notice">Ничего подходящего не найдено. Попробуй другое название, перемести карту или выбери точку вручную.</p>}</div>
+      {results.length > 0 && <><div className="search-results-heading"><div><strong>{resultQuery}</strong><span>{results.length} на карте{mode==='организация'?` · в радиусе ${Math.round(searchRadius/1000)} км`:""}</span></div><button type="button" className="text-action" disabled={loading} onClick={()=>void search({preventDefault:()=>{}} as React.FormEvent)}>Искать здесь</button></div><ul className="nearby-places">{results.map((place, index) => { const savedNote = place.providerId ? notes.find(note => note.place.provider_id === place.providerId) : undefined; return <li id={`search-result-${index}`} className={`nearby-entry${previewPlace===place?' is-selected':''}`} key={`${place.providerId ?? place.title}-${index}`}><button className="nearby-row" aria-pressed={previewPlace===place} onClick={() => previewResult(place)}><span className="search-result-number">{index+1}</span><span className="row-copy"><strong>{place.title}</strong><span>{place.address}</span><small>{savedNote && 'Уже сохранено · '}{place.distanceM!==undefined?`${place.distanceM} м по прямой`:mode==='организация'?'Организация':'Адрес на карте'}</small></span></button><button className={previewPlace===place?'nearby-save':'row-add'} aria-label={`${savedNote ? "Открыть" : "Добавить"} заметку: ${place.title}`} title={savedNote ? "Открыть сохранённую заметку" : "Добавить заметку"} onClick={()=>savedNote ? openNote(savedNote) : choose({...place,startEditing:true})}>{previewPlace===place?<><Icon name="bookmark"/>{savedNote ? "Открыть" : "Сохранить"}</>:<Icon name={savedNote ? "bookmark" : "plus"}/>}</button></li>;})}</ul><div className="nearby-credit"><a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div></>}
       {gps && gpsPrompt && <section className="notice"><p>Геопозиция показана синей точкой. Точность около {Math.round(gps.accuracy)} м. Переместить карту?</p><button disabled={!ready} onClick={() => { map.current?.jumpTo({ center: [gps.longitude, gps.latitude], zoom: 15 }); setGpsPrompt(false); }}>Показать на карте</button><button className="secondary" onClick={() => setGpsPrompt(false)}>Остаться здесь</button></section>}
       {manual && <section className="selection manual-selection"><p>Перемести карту так, чтобы пин оказался над нужным местом.</p><label htmlFor="custom-name">Название места</label><input autoFocus id="custom-name" value={name} onChange={event => setName(event.target.value)} maxLength={200} placeholder="Например, любимая кофейня"/><div className="manual-actions"><button disabled={!ready || !!mapError || !name.trim()} onClick={() => { const center = map.current?.getCenter(); if (center) choose({ title: name.trim(), address: 'Ручная точка', origin: 'custom', longitude: center.lng, latitude: center.lat }); }}>Выбрать точку</button><button className="secondary" onClick={() => setManual(false)}>Отмена</button></div></section>}
       {importedSelection&&<ImportedPlacePanel selection={importedSelection} onClose={()=>setImportedSelection(null)} onCreate={note=>choose({title:note.place.title,longitude:note.place.longitude,latitude:note.place.latitude,origin:'custom',address:'Моя точка'})}/>}

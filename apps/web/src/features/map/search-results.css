@@ -1,0 +1,9 @@
+.search-result-marker{display:grid;place-items:center;min-width:34px;width:34px;height:34px;min-height:34px;padding:0;border:3px solid #fff;border-radius:50%;background:#087bff;color:#fff;box-shadow:0 3px 12px #17233935;font:600 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;cursor:pointer}
+.search-result-marker.is-active{width:44px;height:44px;background:#172b4d;box-shadow:0 0 0 5px #087bff25,0 4px 14px #17233935}
+.search-result-marker:focus-visible{outline:3px solid #172b4d;outline-offset:4px}
+.search-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0 12px;border-bottom:1px solid var(--line)}
+.search-results-heading>div{display:grid;gap:4px;min-width:0}.search-results-heading strong{font-size:16px;font-weight:600;overflow-wrap:anywhere}.search-results-heading span{font-size:12px;color:var(--muted)}.search-results-heading .text-action{font-size:13px;min-height:44px}
+.nearby-row .search-result-number{display:grid;place-items:center;flex:none;width:36px;height:36px;background:#edf4ff;color:#087bff;border-radius:12px;font-size:14px;font-weight:600}
+.nearby-entry.is-selected{background:#f3f7ff;border-radius:16px;padding-inline:8px}.nearby-entry.is-selected .nearby-row{background:transparent}.nearby-entry.is-selected .search-result-number{background:#087bff;color:#fff}
+.nearby-entry{scroll-margin-block:12px}.search-progress{display:flex;align-items:center;gap:8px;min-height:24px;margin:4px 0 8px;font-size:13px;color:var(--muted)}
+@media(prefers-reduced-motion:no-preference){.search-result-marker{transition:background 150ms ease,box-shadow 150ms ease}.nearby-entry{transition:background 150ms ease}}
