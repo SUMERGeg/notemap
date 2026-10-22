@@ -1,3 +1,0 @@
-.main-yandex-brand{position:absolute;top:12px;left:12px;z-index:2;display:flex;align-items:center;gap:8px}.main-yandex-brand img{display:block;width:85px;height:auto}.main-yandex-brand a:last-child{font-size:11px;color:#172033;background:#ffffffed;padding:8px 10px;border-radius:10px;text-decoration:none;box-shadow:0 2px 8px #17203316}
-@media(max-width:700px){.main-yandex-brand{top:calc(76px + env(safe-area-inset-top));left:8px}.map-area .maplibregl-ctrl-bottom-right{top:calc(113px + env(safe-area-inset-top))}}
-@media(min-width:701px){.main-yandex-brand{left:auto;right:80px}}

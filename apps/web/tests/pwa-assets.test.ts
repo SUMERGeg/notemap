@@ -54,11 +54,10 @@ describe('installable offline app shell',()=>{
   it('generates the shell allowlist from built files at either base and versions content updates',async()=>{
     const dir=await mkdtemp(join(tmpdir(),'notemap-shell-'));
     try{
-      await mkdir(join(dir,'assets'));await mkdir(join(dir,'icons'));await mkdir(join(dir,'maps'));
+      await mkdir(join(dir,'assets'));await mkdir(join(dir,'icons')); // No optional maps directory after removing comparison assets.
       await writeFile(join(dir,'index.html'),'<div id="root"></div>');
       for(const file of ['app-abc.js','map-worker-abc.js','app-abc.css','private.json'])await writeFile(join(dir,'assets',file),'original');
       await writeFile(join(dir,'icons','icon-192.png'),'icon');
-      await writeFile(join(dir,'maps','yandex-logo-ru.svg'),'<svg/>');
       for(const base of ['/','/notemap/']){
         const config=await resolveConfig({base},'build','test');
         const plugin=config.plugins.find(plugin=>plugin.name==='notemap-offline-shell')!;
@@ -67,7 +66,7 @@ describe('installable offline app shell',()=>{
         const source=readFileSync(join(dir,'sw.js'),'utf8');
         const built=runInNewContext(source+';({BASE,PRECACHE,CACHE})',{self:{addEventListener(){}}});
         expect(built.BASE).toBe(base);
-        expect(built.PRECACHE).toEqual([base,`${base}assets/app-abc.css`,`${base}assets/app-abc.js`,`${base}assets/map-worker-abc.js`,`${base}icons/icon-192.png`,`${base}maps/yandex-logo-ru.svg`]);
+        expect(built.PRECACHE).toEqual([base,`${base}assets/app-abc.css`,`${base}assets/app-abc.js`,`${base}assets/map-worker-abc.js`,`${base}icons/icon-192.png`]);
         await writeFile(join(dir,'assets','app-abc.js'),`updated-${base}`);
         await hook.call({} as never,{dir} as never,{});
         expect(readFileSync(join(dir,'sw.js'),'utf8')).not.toContain(built.CACHE);

@@ -149,7 +149,7 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
     {view === 'profile' && <div className="profile-settings">
     <PwaUpdatePanel/>
     <StoragePanel onRestored={()=>window.location.reload()}/>
-    <details className="profile-card profile-extra"><summary><Icon name="sliders"/>Дополнительно<Icon name="chevron"/></summary><div><ShareLinksPanel/><a className="profile-row" href="#map-compare"><Icon name="map"/><span>Сравнить карты</span><Icon name="chevron"/></a></div></details>
+    <details className="profile-card profile-extra"><summary><Icon name="sliders"/>Дополнительно<Icon name="chevron"/></summary><div><ShareLinksPanel/></div></details>
     </div>}
     {editor&&<div className="editor-toolbar"><button type="button" className="text-action" disabled={busy} onClick={cancelEdit}>Отмена</button><h1>{active?'Редактировать':'Добавить заметку'}</h1><button type="submit" form="note-editor" className="text-action save-action" disabled={busy}>{busy?'Сохраняем…':'Сохранить'}</button></div>}
     {editor&&error&&<p className="notice error editor-error" role="alert">{error}</p>}

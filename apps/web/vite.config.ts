@@ -15,7 +15,8 @@ function offlineShell():Plugin {
       const dir=resolve(config.root,output.dir??config.build.outDir);
       const files=['index.html'];
       for(const folder of ['assets','icons','maps']){
-        for(const entry of await readdir(resolve(dir,folder),{withFileTypes:true})){
+        const entries=await readdir(resolve(dir,folder),{withFileTypes:true}).catch((error:unknown)=>{if((error as {code?:string}).code==='ENOENT')return [];throw error;});
+        for(const entry of entries){
           if(entry.isFile() && (folder==='assets'?/\.(js|css)$/:/\.(png|svg|ico)$/).test(entry.name))files.push(`${folder}/${entry.name}`);
         }
       }

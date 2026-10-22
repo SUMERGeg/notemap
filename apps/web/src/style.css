@@ -10,7 +10,7 @@
 body { margin: 0; }
 button, input, select, textarea { font: inherit; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 11px 16px; border: 1px solid transparent; border-radius: var(--radius); background: var(--accent); color: white; font-size: .88rem; font-weight: 600; line-height: 1.3; cursor: pointer; transition: background 140ms, box-shadow 140ms, transform 140ms; }
-button:active:not(:disabled):not(.maplibregl-marker) { transform: scale(.98); }
+button:active:not(:disabled) { transform: scale(.98); }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #1769e845; outline-offset: 3px; }
 input, select, textarea { width: 100%; min-height: 46px; padding: 12px 14px; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; font-size: .9rem; line-height: 1.4; }
@@ -94,10 +94,6 @@ form:not(.map-search) > button:not(.secondary) { width: 100%; }
 .panel-toggle { position: absolute; z-index: 4; left: 24px; bottom: 110px; color: var(--ink); background: #fff; border-radius: 16px; box-shadow: var(--shadow); }
 .panel-toggle .icon { transform: rotate(-90deg); }
 .map-tools { position: absolute; z-index: 2; right: 24px; bottom: 110px; display: grid; gap: 12px; }
-.map-area .maplibregl-ctrl-top-right { top: 18px; right: 18px; }
-.map-area .maplibregl-ctrl-group { border-radius: 15px; overflow: hidden; box-shadow: var(--shadow); }
-.map-area .maplibregl-ctrl-group button { width: 44px; height: 44px; min-height: 44px; }
-.maplibregl-ctrl-attrib { font-size: 10px; }
 .map-message { position: absolute; z-index: 2; top: 110px; left: 50%; transform: translateX(-50%); padding: 18px; width: min(90%,420px); border-radius: 18px; box-shadow: var(--shadow); background: #fffffff5; }
 .personal-marker { display: grid; place-items: center; min-height: 36px; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 2px solid white; background: var(--accent); color: white; box-shadow: 0 3px 9px #17233935; }
 .personal-marker[data-category='food'] { background: #c8844b; }
@@ -149,10 +145,6 @@ input[type='file']::file-selector-button { padding: 8px 10px; color: var(--accen
   .sheet-header { padding-bottom: 12px; }
   .bottom-nav { left: 0; bottom: 0; width: 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); box-shadow: none; }
   .map-tools { right: 14px; bottom: calc(40dvh + 106px); }
-  .map-area .maplibregl-ctrl-top-right { top: 78px; right: 8px; }
-  .map-area .maplibregl-ctrl-bottom-right { bottom: auto; top: 79px; left: 14px; right: auto; max-width: calc(100% - 94px); }
-  .map-area .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0; }
-  .maplibregl-ctrl-attrib { font-size: 8.5px; background: #ffffffb5; border-radius: 6px; }
   .panel-toggle { left: 14px; bottom: 94px; }
   .map-message { top: 134px; }
 }
