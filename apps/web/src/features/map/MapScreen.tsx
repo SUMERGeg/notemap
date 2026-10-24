@@ -6,7 +6,7 @@ import { NativeMapController, NativeMarker, NativePopup, selectionMarker, instal
 import { loadYandexJs } from './yandex-js';
 import './yandex-native.css';
 import { mapPickHint } from './map-pick';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { DEFAULT_VIEWPORT, readViewport, VIEWPORT_KEY, type Viewport } from './viewport';
@@ -98,6 +98,9 @@ export function MapScreen() {
   const [popupElement,setPopupElement] = useState<HTMLElement|null>(null);
   const [panelHeight,setPanelHeight] = useState(0);
   const homeSheet=view==='map'&&!selected&&!manual&&!importedSelection&&results.length===0;
+  useLayoutEffect(()=>{
+    if(homeSheet){setSheetCompact(true);setSheetDragOffset(null);}
+  },[homeSheet]);
   const sheetTravel=panelHeight;
   const sheetOffset=homeSheet?(sheetDragOffset??(sheetCompact?sheetTravel:0)):0;
   const visiblePanelHeight=homeSheet?Math.max(0,panelHeight-sheetOffset):panelHeight;
@@ -285,7 +288,7 @@ export function MapScreen() {
   }
   function showView(next: 'map' | 'list' | 'profile' | 'collections', category: string | null = null) {
     invalidateSearch();
-    setView(next); setPresetCategory(category); setPanelOpen(true); setSheetCompact(false); setManual(false); setResults([]); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0}); openNote(null);
+    setView(next); setPresetCategory(category); setPanelOpen(true); setSheetCompact(next==='map'); setManual(false); setResults([]); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0}); openNote(null);
   }
   function addPoint() {
     invalidateSearch();
