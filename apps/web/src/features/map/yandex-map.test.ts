@@ -28,10 +28,9 @@ describe('основная карта Яндекс JS API',()=>{
     vi.useFakeTimers();const f=fixture();vi.advanceTimersByTime(20000);expect(f.failed).toHaveBeenCalledOnce();
     f.listeners.onStateChanged!({getLayerState:()=>({tilesReady:1})});expect(f.ready).toHaveBeenCalledOnce();f.map.remove();
   });
-  it('передаёт отступы панели в SDK и ограничивает масштаб при открытии места',()=>{
+  it('обновляет камеру и отступы одним вызовом без промежуточного бокового сдвига',()=>{
     const f=fixture();f.map.jumpTo({center:[30,60],zoom:30,padding:{top:90,right:10,bottom:200,left:20}});
-    expect(f.update).toHaveBeenCalledWith({margin:[90,10,200,20]});
-    expect(f.update).toHaveBeenCalledWith({location:{center:[30,60],zoom:19,duration:0}});f.map.remove();
+    expect(f.update).toHaveBeenCalledExactlyOnceWith({margin:[90,10,200,20],location:{center:[30,60],zoom:19,duration:0}});f.map.remove();
   });
   it('группирует 500 совпадающих точек и сохраняет возможность открыть каждую',()=>{
     const points=Array.from({length:500},(_,i)=>({id:String(i),longitude:37.6,latitude:55.7}));
@@ -47,6 +46,6 @@ describe('основная карта Яндекс JS API',()=>{
   it('при открытии коллекции учитывает панель и предел масштаба',()=>{
     const f=fixture();Object.assign(f.map.getContainer(),{clientWidth:600,clientHeight:800});
     f.map.fitBounds([[37.6,55.7],[37.601,55.701]],{maxZoom:15,duration:0,padding:{top:100,right:40,bottom:300,left:40}});
-    expect(f.update).toHaveBeenLastCalledWith({camera:{azimuth:0},location:{center:expect.any(Array),zoom:15,duration:0}});f.map.remove();
+    expect(f.update).toHaveBeenCalledExactlyOnceWith({margin:[100,40,300,40],camera:{azimuth:0},location:{center:expect.any(Array),zoom:15,duration:0}});f.map.remove();
   });
 });

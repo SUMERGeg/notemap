@@ -58,24 +58,22 @@ export class NativeMapController {
   setPadding(padding:Padding){if(!this.disposed)this.native.update({margin:[padding.top,padding.right,padding.bottom,padding.left]});}
   jumpTo(props:{center?:Position;zoom?:number;padding?:Padding;duration?:number}){
     if(this.disposed)return;
-    if(props.padding)this.setPadding(props.padding);
     const location:NativeLocationRequest={duration:props.duration??0};
     if(props.center)location.center=props.center;
     if(props.zoom!==undefined)location.zoom=clampZoom(props.zoom);
-    this.native.update({location});
+    this.native.update({...props.padding?{margin:[props.padding.top,props.padding.right,props.padding.bottom,props.padding.left] as [number,number,number,number]}:{},location});
   }
   fitBounds(bounds:Position[],options:{maxZoom:number;duration:number;padding:Padding}){
     if(!bounds.length)return;
     const xs=bounds.map(p=>p[0]),ys=bounds.map(p=>p[1]);
     if(Math.max(...xs)-Math.min(...xs)<.00001&&Math.max(...ys)-Math.min(...ys)<.00001){this.jumpTo({center:bounds[0],zoom:options.maxZoom,padding:options.padding});return;}
-    this.setPadding(options.padding);
     const mercator=(latitude:number)=>(1-Math.log(Math.tan(Math.PI/4+Math.max(-85,Math.min(85,latitude))*Math.PI/360))/Math.PI)/2;
     const top=mercator(Math.max(...ys)),bottom=mercator(Math.min(...ys));
     const width=Math.max(1,this.host.clientWidth-options.padding.left-options.padding.right);
     const height=Math.max(1,this.host.clientHeight-options.padding.top-options.padding.bottom);
     const zoom=Math.min(options.maxZoom,Math.log2(width/(256*Math.max(.0000001,(Math.max(...xs)-Math.min(...xs))/360))),Math.log2(height/(256*Math.max(.0000001,bottom-top))));
     const center:Position=[(Math.min(...xs)+Math.max(...xs))/2,Math.atan(Math.sinh(Math.PI*(1-top-bottom)))*180/Math.PI];
-    this.native.update({camera:{azimuth:0},location:{center,zoom:clampZoom(zoom),duration:options.duration}});
+    this.native.update({margin:[options.padding.top,options.padding.right,options.padding.bottom,options.padding.left],camera:{azimuth:0},location:{center,zoom:clampZoom(zoom),duration:options.duration}});
   }
   remove(){if(this.disposed)return;this.disposed=true;clearTimeout(this.timer);this.events.clear();this.native.destroy();}
   attach(entity:Entity){if(!this.disposed)this.native.addChild(entity);}
@@ -124,13 +122,15 @@ export function groupPoints<T extends Point>(points:T[],zoom:number){
 }
 type MarkerPoint=Point&{category:string;label:string;open:()=>void};
 export function installNativeMarkers(map:NativeMapController,_id:string,points:MarkerPoint[],imported=false){
-  let markers:NativeMarker[]=[],popup:NativePopup|undefined,frame=0,disposed=false;
+  let markers=new Map<string,NativeMarker>(),popup:NativePopup|undefined,frame=0,disposed=false;
   const update=()=>{
     frame=0;if(disposed)return;
-    markers.forEach(marker=>marker.remove());markers=[];
+    const next=new Map<string,NativeMarker>();
     const b=map.getBounds(),west=b.getWest(),east=b.getEast(),south=b.getSouth(),north=b.getNorth();
     const visible=points.filter(p=>(west<=east?p.longitude>=west-.02&&p.longitude<=east+.02:p.longitude>=west-.02||p.longitude<=east+.02)&&p.latitude>=south-.02&&p.latitude<=north+.02);
     for(const group of groupPoints(visible,map.getZoom())){
+      const key=JSON.stringify(group.points.map(point=>point.id).sort());
+      const existing=markers.get(key);if(existing){next.set(key,existing);continue;}
       const button=document.createElement('button');button.type='button';
       if(group.points.length===1){const point=group.points[0];button.className=`personal-marker${imported?' imported-marker':''}`;button.dataset.category=point.category;button.innerHTML=markerIcon(point.category);button.setAttribute('aria-label',point.label);button.onclick=point.open;}
       else{
@@ -146,8 +146,10 @@ export function installNativeMarkers(map:NativeMapController,_id:string,points:M
           show(0);popup?.remove();popup=new NativePopup().setLngLat(group.position).setDOMContent(content).addTo(map);
         };
       }
-      markers.push(new NativeMarker({element:button,anchor:group.points.length>1?'center':'bottom'}).setLngLat(group.position).addTo(map));
+      next.set(key,new NativeMarker({element:button,anchor:group.points.length>1?'center':'bottom'}).setLngLat(group.position).addTo(map));
     }
+    for(const [key,marker] of markers)if(!next.has(key))marker.remove();
+    markers=next;
   };
   const schedule=()=>{if(!disposed&&!frame)frame=requestAnimationFrame(update);};
   map.on('moveend',schedule);schedule();

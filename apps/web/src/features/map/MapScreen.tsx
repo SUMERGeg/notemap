@@ -37,6 +37,8 @@ export function MapScreen() {
   const marker = useRef<NativeMarker | null>(null);
   const controller = useRef<AbortController | null>(null);
   const requestNumber = useRef(0);
+  const resultButtons = useRef(new Map<PlaceCandidate,HTMLButtonElement>());
+  const importedNeedsFocus = useRef(false);
   const alive = useRef(true);
   const [tracking,setTracking]=useState(false);
   const [gpsPrompt,setGpsPrompt]=useState(false);
@@ -123,10 +125,10 @@ export function MapScreen() {
     document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
     return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
   },[searchOptions]);
-  function openNote(note: PersonalNote | null) {
+  function openNote(note: PersonalNote | null, fromMarker = false) {
     setImportedSelection(null);
     if (note) setPanelOpen(true);
-    if (note) choose({ ...note.place, address: note.place.address ?? 'Личная точка' });
+    if (note) choose({ ...note.place, address: note.place.address ?? 'Личная точка' }, fromMarker);
     else { setSelected(null); marker.current?.remove(); marker.current = null; }
     setActiveNote(note);
   }
@@ -134,14 +136,14 @@ export function MapScreen() {
     if (!ready || !map.current) return;
     return installClusteredMarkers(map.current,'personal-notes',notes.map(note=>({
       id:note.id,longitude:note.place.longitude,latitude:note.place.latitude,category:note.category,
-      label:`Открыть заметку: ${note.place.title}`,open:()=>openNote(note),
+      label:`Открыть заметку: ${note.place.title}`,open:()=>openNote(note,true),
     })));
   }, [notes, ready, retry]);
 
-  function openImported(selection:ImportedSelection){invalidateSearch();
+  function openImported(selection:ImportedSelection,fromMarker=false){invalidateSearch(false);
+    importedNeedsFocus.current=!fromMarker;
     openNote(null);clearPreview();setResults([]);setManual(false);setView('map');setImportedSelection(selection);setPanelOpen(true);setSheetCompact(false);
-    const {longitude,latitude}=selection.note.place;
-    map.current?.jumpTo({center:[longitude,latitude],zoom:Math.max(15,map.current.getZoom()),padding:{top:0,bottom:0,left:0,right:0}});
+
   }
   function showImportedMap(layer:ImportedLayer){
     showView('map');
@@ -154,16 +156,17 @@ export function MapScreen() {
     if(!ready||!map.current)return;
     return installClusteredMarkers(map.current,'imported-notes',importedLayers.filter(layer=>layer.visible).flatMap(layer=>layer.items.map(note=>({
       id:`${layer.id}:${note.origin_note_id}`,longitude:note.place.longitude,latitude:note.place.latitude,category:note.category,
-      label:`Импорт: ${note.place.title} · ${layer.author_name}`,open:()=>openImported({layer,note}),
+      label:`Импорт: ${note.place.title} · ${layer.author_name}`,open:()=>openImported({layer,note},true),
     }))),true);
   },[importedLayers,ready,retry]);
   useEffect(()=>{if(importedSelection&&!importedLayers.some(layer=>layer.id===importedSelection.layer.id))setImportedSelection(null);},[importedLayers,importedSelection]);
   useEffect(()=>{
-    if(!importedSelection||!ready||!map.current)return;
+    if(!importedSelection||!ready||!map.current||!importedNeedsFocus.current)return;
+    importedNeedsFocus.current=false;
     const mobile=window.matchMedia('(max-width:700px)').matches;
     const height=map.current.getContainer().clientHeight;
     const {longitude,latitude}=importedSelection.note.place;
-    map.current.jumpTo({center:[longitude,latitude],padding:{top:mobile?94:40,bottom:mobile?Math.min(panelHeight+85,height*.65):40,left:mobile?0:440,right:0}});
+    map.current.jumpTo({center:[longitude,latitude],zoom:Math.max(15,map.current.getZoom()),duration:motionDuration(),padding:{top:mobile?94:40,bottom:mobile?Math.min(panelHeight+85,height*.65):40,left:mobile?0:440,right:0}});
   },[importedSelection,ready,panelHeight]);
 
   useEffect(() => {
@@ -201,8 +204,9 @@ export function MapScreen() {
     return()=>window.removeEventListener('online',reconnect);
   },[mapError]);
 
-  function choose(candidate: PlaceCandidate) {
-    invalidateSearch();
+  function motionDuration(){return window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:280;}
+  function choose(candidate: PlaceCandidate, preserveCamera = false) {
+    invalidateSearch(false);
     setImportedSelection(null);
     setPanelOpen(true);
     setSheetCompact(false); setResults([]); clearPreview();
@@ -212,13 +216,13 @@ export function MapScreen() {
     if (!instance) return;
     marker.current?.remove();
     marker.current = selectionMarker().setLngLat([candidate.longitude, candidate.latitude]).addTo(instance);
-    instance.jumpTo({ center: [candidate.longitude, candidate.latitude], zoom: Math.max(15, instance.getZoom()), padding:{top:0,bottom:0,left:0,right:0} });
+    if(!preserveCamera)instance.jumpTo({ center: [candidate.longitude, candidate.latitude], zoom: Math.max(15, instance.getZoom()), duration:motionDuration(), padding:{top:0,bottom:0,left:0,right:0} });
   }
-  function previewResult(place: PlaceCandidate) {
+  function previewResult(place: PlaceCandidate, preserveCamera = false) {
     setPreviewPlace(place); marker.current?.remove();
     if(!map.current)return;
     marker.current=selectionMarker().setLngLat([place.longitude,place.latitude]).addTo(map.current);
-    map.current.jumpTo({center:[place.longitude,place.latitude],zoom:Math.max(15,map.current.getZoom()),padding:{top:0,bottom:map.current.getContainer().clientHeight*.48,left:0,right:0}});
+    if(!preserveCamera)map.current.jumpTo({center:[place.longitude,place.latitude],zoom:Math.max(15,map.current.getZoom()),duration:motionDuration(),padding:{top:0,bottom:map.current.getContainer().clientHeight*.48,left:0,right:0}});
     popup.current?.remove();
     const host=document.createElement('div');
     popup.current=new NativePopup({closeButton:false,closeOnClick:false,anchor:'bottom',offset:[0,-48],maxWidth:'280px',className:'result-popup'}).setLngLat([place.longitude,place.latitude]).setDOMContent(host).addTo(map.current);
@@ -227,20 +231,27 @@ export function MapScreen() {
   useEffect(()=>{
     const instance=map.current;if(!ready||!instance||view!=='map'||selected||importedSelection)return;
     const markers=results.map((place,index)=>{
-      const button=document.createElement('button');button.type='button';button.className=`search-result-marker${previewPlace===place?' is-active':''}`;button.textContent=String(index+1);button.setAttribute('aria-label',`${index+1}. ${place.title}`);button.setAttribute('aria-pressed',String(previewPlace===place));
-      button.onclick=()=>{previewResult(place);document.getElementById(`search-result-${index}`)?.scrollIntoView({block:'nearest',behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth'});};
+      const button=document.createElement('button');button.type='button';button.className='search-result-marker';button.textContent=String(index+1);button.setAttribute('aria-label',`${index+1}. ${place.title}`);button.setAttribute('aria-pressed','false');resultButtons.current.set(place,button);
+      button.onclick=()=>{
+        previewResult(place,true);
+        const row=document.getElementById(`search-result-${index}`),sidebar=panel.current;
+        if(row&&sidebar){const item=row.getBoundingClientRect(),area=sidebar.getBoundingClientRect();const delta=item.top<area.top?item.top-area.top:item.bottom>area.bottom?item.bottom-area.bottom:0;if(delta)sidebar.scrollBy({top:delta,behavior:motionDuration()?'smooth':'instant'});}
+      };
       return new NativeMarker({element:button,anchor:'center'}).setLngLat([place.longitude,place.latitude]).addTo(instance);
     });
-    return()=>markers.forEach(item=>item.remove());
-  },[results,previewPlace,ready,retry,view,selected,importedSelection]);
+    return()=>{markers.forEach(item=>item.remove());resultButtons.current.clear();};
+  },[results,ready,retry,view,selected,importedSelection]);
+  useEffect(()=>{
+    for(const [place,button] of resultButtons.current){const active=previewPlace===place;button.classList.toggle('is-active',active);button.setAttribute('aria-pressed',String(active));}
+  },[previewPlace,results,ready,retry,view,selected,importedSelection]);
   useEffect(()=>{
     const instance=map.current;if(!ready||!instance||!results.length||view!=='map'||selected||importedSelection)return;
     const mobile=window.matchMedia('(max-width:700px)').matches;const host=instance.getContainer();
     instance.fitBounds(results.map(place=>[place.longitude,place.latitude]),{maxZoom:15,duration:window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:300,padding:{top:110,bottom:mobile?Math.min((panel.current?.clientHeight??0)+24,host.clientHeight*.6):60,left:mobile?40:Math.min(450,host.clientWidth*.55),right:40}});
   },[results,ready,retry]);
   function editQuery(value:string){controller.current?.abort();requestNumber.current++;setLoading(false);setSearchError('');setSearched(false);clearPreview();setQuery(value);}
-  function invalidateSearch() {
-    controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false); setResultQuery(''); setResults([]); setSearchError(''); clearPreview(); map.current?.setPadding({top:0,bottom:0,left:0,right:0});
+  function invalidateSearch(resetCamera = true) {
+    controller.current?.abort(); requestNumber.current++; setLoading(false); setSearched(false); setResultQuery(''); setResults([]); setSearchError(''); clearPreview(); if(resetCamera)map.current?.setPadding({top:0,bottom:0,left:0,right:0});
   }
   function closeSearchPanel() {
     invalidateSearch(); setManual(false); setPanelOpen(true); setSheetCompact(true);
@@ -347,7 +358,7 @@ export function MapScreen() {
       </div>
     </aside>
     <section className="map-area" aria-label="Карта мест"><div ref={container} className="map-canvas" />
-      {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
+      {previewPlace&&popupElement&&results.length>0&&createPortal(<button className="map-place-callout" onClick={()=>choose(previewPlace,true)}><MiniMap longitude={previewPlace.longitude} latitude={previewPlace.latitude}/><span><strong>{previewPlace.title}</strong><small>{previewPlace.address}</small></span><Icon name="chevron"/></button>,popupElement)}
       <div className="map-tools" aria-label="Действия на карте">
         <button className="round-button" aria-label={locating?'Определяем геопозицию':tracking?'Выключить геопозицию':'Где я?'} aria-pressed={tracking} aria-busy={locating} aria-describedby={gpsError?'location-error':undefined} onClick={locate}>{locating ? <span className="spinner" aria-hidden="true"/> : <Icon name="location"/>}</button>
         {gpsError&&<div id="location-error" className="location-toast" role="alert">{gpsError}</div>}
