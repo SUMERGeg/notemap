@@ -1,3 +1,4 @@
+import { AuthorBadge } from './ProfileIdentity';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { EmptyState } from '../../components/EmptyState';
@@ -28,7 +29,7 @@ export function ImportedCollectionsPanel({hidden,onLayers,onOpen,onMap,initialId
     {error&&<><p className="notice error" role="alert">{error}</p><button className="secondary" disabled={busy} onClick={()=>void action(reload)}>Повторить загрузку</button></>}
     {selected&&!current&&!loading&&!error&&<p className="notice">Коллекция недоступна на этом устройстве.</p>}
     {selected&&<button className="secondary" disabled={busy} onClick={()=>setSelected(null)}><Icon name="chevron" className="back-icon"/>Все полученные</button>}
-    {current?<><h3>{current.name}</h3><p className="muted">{current.author_name} · Версия {current.snapshot_version} · {current.note_count} мест</p>{current.description&&<p>{current.description}</p>}<p className="muted">Личная копия · обновление по новой ссылке</p>
+    {current?<><h3>{current.name}</h3><AuthorBadge name={current.author_name}/><p className="muted">{current.note_count} мест · Версия {current.snapshot_version}</p>{current.description&&<p>{current.description}</p>}<p className="muted">Личная копия · обновление по новой ссылке</p>
       <div className="toggle-group"><ToggleRow title="Показывать на карте" icon="map" checked={current.visible} disabled={busy} onChange={visible=>void action(async()=>{await importsApi(`/imports/${current.id}`,'PATCH',{visible});await reload();})}/></div>
       <button className="secondary" disabled={busy||!current.visible||!current.items.length} onClick={()=>onMap(current)}><Icon name="map"/>Посмотреть на карте</button>
       <ul className="results">{current.items.map(note=><li key={note.origin_note_id}><button className="result imported-place-row" disabled={busy} onClick={()=>onOpen({layer:current,note})}><MiniMap longitude={note.place.longitude} latitude={note.place.latitude}/><span><strong>{note.place.title}</strong><small>{categoryTitle(note.category)}{note.rating!=null?` · Оценка автора ${note.rating}/10`:''}</small></span><Icon name="chevron"/></button></li>)}</ul>
@@ -40,7 +41,7 @@ export function ImportedCollectionsPanel({hidden,onLayers,onOpen,onMap,initialId
 
 export function ImportedPlacePanel({selection,onClose,onCreate}:{selection:ImportedSelection;onClose:()=>void;onCreate:(note:SharedNote)=>void}){
   const {layer,note}=selection;
-  return <section className="selection imported-place-detail"><button className="text-action" onClick={onClose}><Icon name="chevron" className="back-icon"/>На карту</button><span className="privacy-label imported-label"><Icon name="layers"/>Импортированная копия</span><h2>{note.place.title}</h2><p className="muted">{note.place.address||categoryTitle(note.category)}</p><p>{layer.name} · {layer.author_name} · Версия {layer.snapshot_version}</p>
+  return <section className="selection imported-place-detail"><button className="text-action" onClick={onClose}><Icon name="chevron" className="back-icon"/>На карту</button><span className="privacy-label imported-label"><Icon name="layers"/>Импортированная копия</span><h2>{note.place.title}</h2><p className="muted">{note.place.address||categoryTitle(note.category)}</p><AuthorBadge name={layer.author_name}/><p className="muted">{layer.name}</p>
     <MiniMap longitude={note.place.longitude} latitude={note.place.latitude}/>
     <p className="rating-badge">{note.rating==null?'Автор не передал оценку':`Оценка автора: ${note.rating}/10`}</p>
     {note.text&&<p className="preview-text">{note.text}</p>}<SharedPhotos photos={note.photos}/>{note.visited_on&&<p>Посещение: {new Date(`${note.visited_on}T12:00:00`).toLocaleDateString('ru-RU')}</p>}

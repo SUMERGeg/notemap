@@ -14,6 +14,14 @@ function populated() {
   return state;
 }
 describe('full local backup validation', () => {
+  it('сохраняет профиль в резервной копии и принимает прежний формат без никнейма',async()=>{
+    const state=populated();state.profile.nickname='Егор';state.profile.avatar_color='purple';
+    const restored=await parseArchive(await serializeArchive({state,photos:[]}));
+    expect(restored.state.profile).toEqual(state.profile);
+    expect(validateState(populated()).profile.nickname).toBeUndefined();
+    const invalid=populated();invalid.profile.nickname='x'.repeat(41);expect(()=>validateState(invalid)).toThrow();
+    invalid.profile.nickname='Имя';invalid.profile.avatar_color='bad';expect(()=>validateState(invalid)).toThrow();
+  });
   it('round-trips exported and imported snapshots with the full allowed title and description', async () => {
     const state = populated();
     state.places[0].title = 'М'.repeat(200); state.notes[0].place.title = state.places[0].title;

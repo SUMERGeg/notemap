@@ -1,3 +1,4 @@
+import { nickname, profileColors } from './profile';
 import { validateSharedPhotos } from './shared-photos';
 import { createState, exportDatabase, replaceDatabase, type LocalPhoto, type LocalState } from './db';
 import { MAX_PHOTO_BYTES, sanitizePhoto } from './photos';
@@ -54,6 +55,8 @@ export function validateState(value: unknown): LocalState {
   const state = value as LocalState;
   requireValue(object(state)); checkJson(state);
   requireValue(object(state.profile) && uuid(state.profile.id) && text(state.profile.email,320,1));
+  if(state.profile.nickname!==undefined){requireValue(typeof state.profile.nickname==='string');requireValue(nickname(state.profile.nickname)===state.profile.nickname);}
+  if(state.profile.avatar_color!==undefined)requireValue(profileColors.some(color=>color===state.profile.avatar_color));
   for (const field of ['places','notes','itemTypes','reviews','collections','imports','snapshots'] as const) requireValue(Array.isArray(state[field]) && state[field].length <= MAX_ROWS);
   requireValue(object(state.receipts) && Object.keys(state.receipts).length <= MAX_ROWS);
   const placeIds = unique(state.places,'id'), noteIds = unique(state.notes,'id'), typeIds = unique(state.itemTypes,'id');

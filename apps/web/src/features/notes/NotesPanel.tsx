@@ -1,3 +1,4 @@
+import { ProfileIdentity } from './ProfileIdentity';
 import { Select } from '../../components/Select';
 import { api } from './api';
 import { StoragePanel } from './StoragePanel';
@@ -145,7 +146,7 @@ export function NotesPanel({ selected, active, onNotes, onOpen, bounds, view, pr
     if (!active) { onOpen(null); return; }
     setCategory(active.category); setRating(active.rating?.toString() ?? ''); setText(active.text); setDate(active.visited_on ?? ''); setEditing(false); setError('');
   }
-  return <section className="selection note-workspace">{view === 'profile' && <div className="profile-identity"><span className="profile-avatar"><Icon name="user"/></span><h2>Личное пространство</h2><p><Icon name="lock"/>Данные на этом устройстве</p></div>}
+  return <section className="selection note-workspace">{view === 'profile' && <ProfileIdentity/>}
     {view === 'profile' && <div className="profile-settings">
     <PwaUpdatePanel/>
     <StoragePanel onRestored={()=>window.location.reload()}/>

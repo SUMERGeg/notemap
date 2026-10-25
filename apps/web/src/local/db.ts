@@ -1,6 +1,6 @@
 // A single state record makes domain changes and photo cascades one IDB commit.
 export type LocalState = {
-  profile: { id: string; email: string };
+  profile: { id: string; email: string; nickname?: string; avatar_color?: string };
   places: any[]; notes: any[]; itemTypes: any[]; reviews: any[];
   collections: any[]; imports: any[]; snapshots: any[]; receipts: Record<string, any>;
 };
